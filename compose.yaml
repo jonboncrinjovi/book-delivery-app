@@ -17,6 +17,7 @@ services:
     build: .
     environment:
       DATABASE_URL: postgres://app:${DB_PASSWORD}@db:5432/books
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
     ports:
       - "127.0.0.1:8080:8080" 
     depends_on:
