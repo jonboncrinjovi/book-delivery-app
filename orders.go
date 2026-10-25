@@ -87,6 +87,7 @@ func createOrder(pool *pgxpool.Pool) http.HandlerFunc {
 		case err != nil:
 			http.Error(w, "could not place order", http.StatusInternalServerError)
 		default:
+                        go notifyNewOrder(pool, resp.ID)
 			writeJSON(w, http.StatusCreated, resp)
 		}
 	}

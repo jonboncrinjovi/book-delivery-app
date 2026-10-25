@@ -18,6 +18,8 @@ services:
     environment:
       DATABASE_URL: postgres://app:${DB_PASSWORD}@db:5432/books
       ADMIN_TOKEN: ${ADMIN_TOKEN}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
     ports:
       - "127.0.0.1:8080:8080" 
     depends_on:
