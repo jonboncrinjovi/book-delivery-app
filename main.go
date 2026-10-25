@@ -38,7 +38,8 @@ func main() {
 	mux.HandleFunc("GET /box-sizes", listBoxSizes(pool))
 	mux.HandleFunc("GET /designs", listDesigns(pool))        // ?kind=card to filter
         mux.HandleFunc("POST /orders", createOrder(pool))       // public: customers place orders
-	
+        
+        go runBot(pool)	
         log.Println("listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
