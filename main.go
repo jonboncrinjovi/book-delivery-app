@@ -32,15 +32,15 @@ func main() {
 	admin := os.Getenv("ADMIN_TOKEN")
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", health(pool))
-	mux.HandleFunc("GET /products", listProducts(pool))      // ?category=book to filter
-	mux.HandleFunc("POST /products", requireAdmin(admin, createProduct(pool)))
-	mux.HandleFunc("GET /box-sizes", listBoxSizes(pool))
-	mux.HandleFunc("GET /designs", listDesigns(pool))        // ?kind=card to filter
-        mux.HandleFunc("POST /orders", createOrder(pool))       // public: customers place orders
-        
-        go runBot(pool)	
-        log.Println("listening on :8080")
+	mux.HandleFunc("GET /api/health", health(pool))
+	mux.HandleFunc("GET /api/products", listProducts(pool)) // ?category=book to filter
+	mux.HandleFunc("POST /api/products", requireAdmin(admin, createProduct(pool)))
+	mux.HandleFunc("GET /api/box-sizes", listBoxSizes(pool))
+	mux.HandleFunc("GET /api/designs", listDesigns(pool)) // ?kind=card to filter
+	mux.HandleFunc("POST /api/orders", createOrder(pool)) // public: customers place orders
+
+	go runBot(pool)
+	log.Println("listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
