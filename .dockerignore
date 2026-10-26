@@ -1,0 +1,5 @@
+frontend/
+media/
+catalog/
+.git/
+.env
