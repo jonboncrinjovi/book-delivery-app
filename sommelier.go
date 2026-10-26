@@ -37,6 +37,18 @@ type RevealedCard struct {
 	PriceCents  int     `json:"price_cents"`
 }
 
+// a sommelier suggestion for one pairing step
+type Suggestion struct {
+	ID          int64   `json:"id"`
+	Category    string  `json:"category"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	PriceCents  int     `json:"price_cents"`
+	Slots       int     `json:"slots"`
+	Image       *string `json:"image"`
+	Note        string  `json:"note"` // the sommelier's line; empty when it's a fallback pick
+}
+
 // listTags returns anchors, each with its subtags nested inside
 func listTags(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +128,6 @@ func pickBook(pool *pgxpool.Pool) http.HandlerFunc {
 			ORDER BY count(bt.tag_id) DESC, random()
 			LIMIT 1`, tags, exclude).Scan(&c.ID)
 		if errors.Is(err, pgx.ErrNoRows) {
-			// every match already shown, or nothing fits the tags
 			http.Error(w, "no books left for these tags", http.StatusNotFound)
 			return
 		}
@@ -189,6 +200,57 @@ func revealBook(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, c)
+	}
+}
+
+var pairable = map[string]bool{"drink": true, "snack": true, "flowers": true}
+
+// pairProduct: GET /api/sommelier/pair?book=12&category=flowers&occasion=birthday&exclude=4,9
+// ranking: fits the occasion → paired with the book's genre → anything else, random within each
+func pairProduct(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		book, err := strconv.ParseInt(q.Get("book"), 10, 64)
+		if err != nil {
+			http.Error(w, "book must be a number", http.StatusBadRequest)
+			return
+		}
+		category := q.Get("category")
+		if !pairable[category] {
+			http.Error(w, "category must be drink, snack or flowers", http.StatusBadRequest)
+			return
+		}
+		exclude, err := parseIDs(q.Get("exclude"))
+		if err != nil {
+			http.Error(w, "exclude must be comma-separated numbers", http.StatusBadRequest)
+			return
+		}
+
+		var s Suggestion
+		// the inner SELECT finds the book's anchor genres (tags without a parent)
+		err = pool.QueryRow(r.Context(), `
+			SELECT p.id, p.category::text, p.name, p.description, p.price_cents, p.slots,
+			       '/api/media/' || p.cover_path, coalesce(max(pr.note), '')
+			FROM products p
+			LEFT JOIN pairings pr ON pr.product_id = p.id AND pr.anchor_tag_id IN (
+				SELECT bt.tag_id FROM book_tags bt JOIN tags t ON t.id = bt.tag_id
+				WHERE bt.product_id = $1 AND t.parent_id IS NULL)
+			LEFT JOIN product_occasions po ON po.product_id = p.id AND po.occasion = $4
+			WHERE p.category::text = $2 AND p.active AND p.stock > 0
+			  AND NOT (p.id = ANY($3))
+			GROUP BY p.id
+			ORDER BY count(po.occasion) DESC, count(pr.product_id) DESC, random()
+			LIMIT 1`, book, category, exclude, q.Get("occasion")).Scan(
+			&s.ID, &s.Category, &s.Name, &s.Description, &s.PriceCents, &s.Slots, &s.Image, &s.Note)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "nothing left in this category", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, "query failed", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, s)
 	}
 }
 

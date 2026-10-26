@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
-	_ "time/tzdata" // bakes timezone data into the binary; the distroless image has none
+	_ "time/tzdata" // timezone data inside the binary; redundant with distroless, but harmless
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,7 +33,11 @@ type OrderItemReq struct {
 
 // what the customer sends; note: no prices, no totals. The server decides those.
 type OrderReq struct {
-	BoxSize        string         `json:"box_size"`
+	BoxSize        string         `json:"box_size"`  // empty = the paper bag
+	BagColor       *string        `json:"bag_color"` // nil = surprise: you choose when packing
+	Gift           bool           `json:"gift"`      // "в подарок" vs "для себя"
+	Recipient      *string        `json:"recipient"` // code from /api/recipients
+	Occasion       *string        `json:"occasion"`  // code from /api/occasions
 	BoxDesignID    *int64         `json:"box_design_id"`
 	CardDesignID   *int64         `json:"card_design_id"`
 	CardText       string         `json:"card_text"`
@@ -58,11 +62,11 @@ type OrderResp struct {
 }
 
 type settings struct {
-	DeliveryFee, ExpressFee, KmFee  int
-	FreeFrom                        *int
-	CenterLat, CenterLon            float64
-	RadiusKm, MaxKm                 float64
-	CutoffHour, UntilHour           int
+	DeliveryFee, ExpressFee, KmFee int
+	FreeFrom                       *int
+	CenterLat, CenterLon           float64
+	RadiusKm, MaxKm                float64
+	CutoffHour, UntilHour          int
 }
 
 // badRequest marks errors caused by the customer's input (answered with 400),
@@ -87,7 +91,7 @@ func createOrder(pool *pgxpool.Pool) http.HandlerFunc {
 		case err != nil:
 			http.Error(w, "could not place order", http.StatusInternalServerError)
 		default:
-                        go notifyNewOrder(pool, resp.ID)
+			go notifyNewOrder(pool, resp.ID) // "go" = run in the background, don't wait for it
 			writeJSON(w, http.StatusCreated, resp)
 		}
 	}
@@ -105,7 +109,19 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		return resp, badRequest{"delivery_type must be standard or express"}
 	}
 	if len(req.Items) == 0 {
-		return resp, badRequest{"the box is empty"}
+		return resp, badRequest{"the order is empty"}
+	}
+
+	// packaging: the bag is the default; a colour only makes sense for the bag
+	if req.BoxSize == "" {
+		req.BoxSize = "BAG"
+	}
+	if req.BoxSize != "BAG" {
+		req.BagColor = nil
+	}
+	// gift answers only count for gifts
+	if !req.Gift {
+		req.Recipient, req.Occasion = nil, nil
 	}
 
 	// merge duplicates: the same product listed twice becomes one line
@@ -144,22 +160,36 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		return resp, err
 	}
 
-	// 3. delivery area, checked early so nobody fills a box for an address you don't serve
+	// 3. delivery area, checked early so nobody fills an order for an address you don't serve
 	dist := haversineKm(s.CenterLat, s.CenterLon, req.Lat, req.Lon)
 	if dist > s.MaxKm {
 		return resp, badRequest{"address is outside the delivery area"}
 	}
 
-	// 4. box
+	// 4. packaging: bag or box
 	var capacity *int
 	var boxPrice int
 	err = tx.QueryRow(ctx, `SELECT capacity_slots, price_cents FROM box_sizes WHERE code = $1`,
 		req.BoxSize).Scan(&capacity, &boxPrice)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return resp, badRequest{"unknown box size"}
+		return resp, badRequest{"unknown packaging"}
 	}
 	if err != nil {
 		return resp, err
+	}
+
+	// every code the customer sent must exist in its lookup table
+	for _, c := range []struct {
+		table string
+		code  *string
+	}{{"bag_colors", req.BagColor}, {"recipients", req.Recipient}, {"occasions", req.Occasion}} {
+		ok, err := codeExists(ctx, tx, c.table, c.code)
+		if err != nil {
+			return resp, err
+		}
+		if !ok {
+			return resp, badRequest{"unknown " + c.table + " code"}
+		}
 	}
 
 	// 5. products: lock each row, check it, price it
@@ -186,7 +216,7 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		slots += sl * qty[id]
 	}
 	if capacity != nil && slots > *capacity {
-		return resp, badRequest{fmt.Sprintf("items need %d slots, box %s holds %d", slots, req.BoxSize, *capacity)}
+		return resp, badRequest{fmt.Sprintf("items need %d slots, %s holds %d", slots, req.BoxSize, *capacity)}
 	}
 
 	// 6. designs: must exist, be active, and be the right kind (no A3 print used as a card)
@@ -247,14 +277,16 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	err = tx.QueryRow(ctx, `
 		INSERT INTO orders (status, box_size, box_design_id, card_design_id, card_text,
 			customer_name, customer_phone, recipient_name, recipient_phone, address, lat, lon,
-			delivery_type, deliver_by, subtotal_cents, delivery_fee_cents, total_cents)
+			delivery_type, deliver_by, subtotal_cents, delivery_fee_cents, total_cents,
+			bag_color, gift, recipient, occasion)
 		VALUES ($1::order_status, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-			$13::delivery_type, $14, $15, $16, $17)
+			$13::delivery_type, $14, $15, $16, $17, $18, $19, $20, $21)
 		RETURNING id`,
 		status, req.BoxSize, req.BoxDesignID, req.CardDesignID, req.CardText,
 		req.CustomerName, req.CustomerPhone, req.RecipientName, req.RecipientPhone,
 		req.Address, req.Lat, req.Lon, req.DeliveryType, deliverBy,
-		subtotal, fee, subtotal+fee).Scan(&resp.ID)
+		subtotal, fee, subtotal+fee,
+		req.BagColor, req.Gift, req.Recipient, req.Occasion).Scan(&resp.ID)
 	if err != nil {
 		return resp, err
 	}
@@ -280,6 +312,17 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	resp.TotalCents = subtotal + fee
 	resp.DeliverBy = deliverBy
 	return resp, nil
+}
+
+// codeExists checks a code against a lookup table; nil means "not given", which is fine.
+// table is always one of our own constants, never user input, so putting it into the SQL is safe.
+func codeExists(ctx context.Context, tx pgx.Tx, table string, code *string) (bool, error) {
+	if code == nil {
+		return true, nil
+	}
+	var ok bool
+	err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM "+table+" WHERE code = $1)", *code).Scan(&ok)
+	return ok, err
 }
 
 // haversineKm: straight-line distance between two points on Earth's surface, in km
