@@ -88,7 +88,7 @@ func listDesigns(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-var validCategories = map[string]bool{"book": true, "drink": true, "snack": true, "flowers": true, "other": true}
+var validCategories = map[string]bool{"book": true, "drink": true, "snack": true, "flowers": true, "other": true, "stationery": true}
 
 func createProduct(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

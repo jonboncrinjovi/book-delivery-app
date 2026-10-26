@@ -38,8 +38,12 @@ func main() {
 	mux.HandleFunc("GET /api/box-sizes", listBoxSizes(pool))
 	mux.HandleFunc("GET /api/designs", listDesigns(pool)) // ?kind=card to filter
 	mux.HandleFunc("POST /api/orders", createOrder(pool)) // public: customers place orders
-
-	go runBot(pool)
+        mux.HandleFunc("GET /api/tags", listTags(pool))
+	mux.HandleFunc("GET /api/sommelier/pick", pickBook(pool))
+	mux.HandleFunc("GET /api/sommelier/reveal/{id}", revealBook(pool)) // {id} = a path parameter
+	mux.Handle("GET /api/media/", mediaHandler("/media"))              // cover images
+	
+        go runBot(pool)
 	log.Println("listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
