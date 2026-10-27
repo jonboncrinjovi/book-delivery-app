@@ -29,15 +29,17 @@ func mustLoadLocation(name string) *time.Location {
 type OrderItemReq struct {
 	ProductID int64 `json:"product_id"`
 	Quantity  int   `json:"quantity"`
+	Hidden    bool  `json:"hidden"` // blind-date book: stays a surprise
 }
 
 // what the customer sends; note: no prices, no totals. The server decides those.
 type OrderReq struct {
+	DryRun         bool           `json:"dry_run"`   // true = only calculate the price, save nothing
 	BoxSize        string         `json:"box_size"`  // empty = the paper bag
 	BagColor       *string        `json:"bag_color"` // nil = surprise: you choose when packing
-	Gift           bool           `json:"gift"`      // "в подарок" vs "для себя"
-	Recipient      *string        `json:"recipient"` // code from /api/recipients
-	Occasion       *string        `json:"occasion"`  // code from /api/occasions
+	Gift           bool           `json:"gift"`
+	Recipient      *string        `json:"recipient"`
+	Occasion       *string        `json:"occasion"`
 	BoxDesignID    *int64         `json:"box_design_id"`
 	CardDesignID   *int64         `json:"card_design_id"`
 	CardText       string         `json:"card_text"`
@@ -53,7 +55,8 @@ type OrderReq struct {
 }
 
 type OrderResp struct {
-	ID               int64     `json:"id"`
+	ID               int64     `json:"id,omitempty"`    // empty for a dry run
+	Track            string    `json:"track,omitempty"` // secret part of the tracking link
 	Status           string    `json:"status"`
 	SubtotalCents    int       `json:"subtotal_cents"`
 	DeliveryFeeCents int       `json:"delivery_fee_cents"`
@@ -69,7 +72,7 @@ type settings struct {
 	CutoffHour, UntilHour          int
 }
 
-// badRequest marks errors caused by the customer's input (answered with 400),
+// badRequest marks errors caused by the customer's input (answered with 400, message shown to them),
 // as opposed to server failures (answered with 500, details hidden)
 type badRequest struct{ msg string }
 
@@ -79,22 +82,24 @@ func createOrder(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req OrderReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			http.Error(w, "Некорректный запрос", http.StatusBadRequest)
 			return
 		}
-		// "now" is passed in rather than read inside, so the logic can be tested at any time of day
 		resp, err := placeOrder(r.Context(), pool, req, time.Now().In(moscow))
 		var br badRequest
 		switch {
 		case errors.As(err, &br):
 			http.Error(w, br.msg, http.StatusBadRequest)
 		case err != nil:
-			http.Error(w, "could not place order", http.StatusInternalServerError)
+			http.Error(w, "Не получилось оформить заказ, попробуй ещё раз", http.StatusInternalServerError)
+		case req.DryRun:
+			writeJSON(w, http.StatusOK, resp) // just the price
 		default:
+			// logged-in customer: attach the order to their account
 			if uid := userID(r.Context(), pool, r); uid != 0 {
 				pool.Exec(r.Context(), `UPDATE orders SET user_id = $1 WHERE id = $2`, uid, resp.ID)
 			}
-                        go notifyNewOrder(pool, resp.ID) // "go" = run in the background, don't wait for it
+			go notifyNewOrder(pool, resp.ID) // "go" = run in the background, don't wait for it
 			writeJSON(w, http.StatusCreated, resp)
 		}
 	}
@@ -103,16 +108,16 @@ func createOrder(pool *pgxpool.Pool) http.HandlerFunc {
 func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.Time) (OrderResp, error) {
 	var resp OrderResp
 
-	// 1. checks that need no database
-	if req.CustomerName == "" || req.CustomerPhone == "" || req.RecipientName == "" ||
-		req.RecipientPhone == "" || strings.TrimSpace(req.Address) == "" {
-		return resp, badRequest{"customer, recipient and address are required"}
+	// 1. checks that need no database; contact details aren't needed for a price quote
+	if !req.DryRun && (req.CustomerName == "" || req.CustomerPhone == "" || req.RecipientName == "" ||
+		req.RecipientPhone == "" || strings.TrimSpace(req.Address) == "") {
+		return resp, badRequest{"Укажи имя, телефон и адрес"}
 	}
 	if req.DeliveryType != "standard" && req.DeliveryType != "express" {
-		return resp, badRequest{"delivery_type must be standard or express"}
+		return resp, badRequest{"Неизвестный способ доставки"}
 	}
 	if len(req.Items) == 0 {
-		return resp, badRequest{"the order is empty"}
+		return resp, badRequest{"Корзина пуста"}
 	}
 
 	// packaging: the bag is the default; a colour only makes sense for the bag
@@ -122,18 +127,19 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	if req.BoxSize != "BAG" {
 		req.BagColor = nil
 	}
-	// gift answers only count for gifts
 	if !req.Gift {
 		req.Recipient, req.Occasion = nil, nil
 	}
 
 	// merge duplicates: the same product listed twice becomes one line
 	qty := map[int64]int{}
+	hidden := map[int64]bool{}
 	for _, it := range req.Items {
 		if it.Quantity <= 0 {
-			return resp, badRequest{"quantities must be positive"}
+			return resp, badRequest{"Количество должно быть больше нуля"}
 		}
 		qty[it.ProductID] += it.Quantity
+		hidden[it.ProductID] = hidden[it.ProductID] || it.Hidden
 	}
 	// fixed lock order, so two simultaneous orders can't deadlock each other
 	ids := make([]int64, 0, len(qty))
@@ -147,7 +153,7 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	if err != nil {
 		return resp, err
 	}
-	defer tx.Rollback(ctx) // undoes everything on any early return; harmless after Commit
+	defer tx.Rollback(ctx) // undoes everything on any early return, and for dry runs; harmless after Commit
 
 	// 2. settings
 	var s settings
@@ -163,10 +169,10 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		return resp, err
 	}
 
-	// 3. delivery area, checked early so nobody fills an order for an address you don't serve
+	// 3. delivery area
 	dist := haversineKm(s.CenterLat, s.CenterLon, req.Lat, req.Lon)
 	if dist > s.MaxKm {
-		return resp, badRequest{"address is outside the delivery area"}
+		return resp, badRequest{"Сюда мы пока не доставляем"}
 	}
 
 	// 4. packaging: bag or box
@@ -175,7 +181,7 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	err = tx.QueryRow(ctx, `SELECT capacity_slots, price_cents FROM box_sizes WHERE code = $1`,
 		req.BoxSize).Scan(&capacity, &boxPrice)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return resp, badRequest{"unknown packaging"}
+		return resp, badRequest{"Неизвестная упаковка"}
 	}
 	if err != nil {
 		return resp, err
@@ -191,7 +197,7 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 			return resp, err
 		}
 		if !ok {
-			return resp, badRequest{"unknown " + c.table + " code"}
+			return resp, badRequest{"Неизвестное значение: " + c.table}
 		}
 	}
 
@@ -199,30 +205,34 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	itemsTotal, slots := 0, 0
 	prices := map[int64]int{}
 	for _, id := range ids {
+		var name string
 		var price, stock, sl int
 		var active bool
-		// FOR UPDATE locks the row until commit: two buyers can't both take the last copy
+		// FOR UPDATE locks the row until the transaction ends: two buyers can't both take the last copy
 		err := tx.QueryRow(ctx,
-			`SELECT price_cents, stock, slots, active FROM products WHERE id = $1 FOR UPDATE`,
-			id).Scan(&price, &stock, &sl, &active)
+			`SELECT name, price_cents, stock, slots, active FROM products WHERE id = $1 FOR UPDATE`,
+			id).Scan(&name, &price, &stock, &sl, &active)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && !active) {
-			return resp, badRequest{fmt.Sprintf("product %d is not available", id)}
+			return resp, badRequest{"Один из товаров больше недоступен"}
 		}
 		if err != nil {
 			return resp, err
 		}
 		if stock < qty[id] {
-			return resp, badRequest{fmt.Sprintf("only %d left of product %d", stock, id)}
+			if hidden[id] {
+				name = "книги-сюрприза" // don't spoil the blind date in an error message
+			}
+			return resp, badRequest{fmt.Sprintf("Осталось только %d шт. %s", stock, name)}
 		}
 		prices[id] = price
 		itemsTotal += price * qty[id]
 		slots += sl * qty[id]
 	}
 	if capacity != nil && slots > *capacity {
-		return resp, badRequest{fmt.Sprintf("items need %d slots, %s holds %d", slots, req.BoxSize, *capacity)}
+		return resp, badRequest{fmt.Sprintf("Не помещается: нужно %d мест, а в упаковке %d", slots, *capacity)}
 	}
 
-	// 6. designs: must exist, be active, and be the right kind (no A3 print used as a card)
+	// 6. designs: must exist, be active, and be the right kind
 	designTotal := 0
 	for _, d := range []struct {
 		id   *int64
@@ -236,7 +246,7 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 			`SELECT price_cents FROM designs WHERE id = $1 AND kind::text = $2 AND active`,
 			*d.id, d.kind).Scan(&price)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return resp, badRequest{"unknown " + d.kind + " design"}
+			return resp, badRequest{"Неизвестный дизайн"}
 		}
 		if err != nil {
 			return resp, err
@@ -264,7 +274,7 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		fee += s.ExpressFee
 		deliverBy = now.Add(2 * time.Hour)
 	case req.DeliveryType == "express":
-		return resp, badRequest{fmt.Sprintf("express delivery is available until %d:00", s.CutoffHour)}
+		return resp, badRequest{fmt.Sprintf("Экспресс-доставка доступна до %d:00", s.CutoffHour)}
 	case now.Before(cutoff):
 		deliverBy = until // today
 	default:
@@ -276,6 +286,17 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		status = "awaiting_quote" // custom box: you price it by hand before payment
 	}
 
+	resp.Status = status
+	resp.SubtotalCents = subtotal
+	resp.DeliveryFeeCents = fee
+	resp.TotalCents = subtotal + fee
+	resp.DeliverBy = deliverBy
+
+	// a price quote ends here: nothing is written, and the deferred Rollback releases the locks
+	if req.DryRun {
+		return resp, nil
+	}
+
 	// 9. write the order, its items, and reduce stock
 	err = tx.QueryRow(ctx, `
 		INSERT INTO orders (status, box_size, box_design_id, card_design_id, card_text,
@@ -284,19 +305,20 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 			bag_color, gift, recipient, occasion)
 		VALUES ($1::order_status, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
 			$13::delivery_type, $14, $15, $16, $17, $18, $19, $20, $21)
-		RETURNING id`,
+		RETURNING id, track_token`,
 		status, req.BoxSize, req.BoxDesignID, req.CardDesignID, req.CardText,
 		req.CustomerName, req.CustomerPhone, req.RecipientName, req.RecipientPhone,
 		req.Address, req.Lat, req.Lon, req.DeliveryType, deliverBy,
 		subtotal, fee, subtotal+fee,
-		req.BagColor, req.Gift, req.Recipient, req.Occasion).Scan(&resp.ID)
+		req.BagColor, req.Gift, req.Recipient, req.Occasion).Scan(&resp.ID, &resp.Track)
 	if err != nil {
 		return resp, err
 	}
 	for _, id := range ids {
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO order_items (order_id, product_id, quantity, unit_price_cents) VALUES ($1, $2, $3, $4)`,
-			resp.ID, id, qty[id], prices[id]); err != nil {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO order_items (order_id, product_id, quantity, unit_price_cents, hidden)
+			VALUES ($1, $2, $3, $4, $5)`,
+			resp.ID, id, qty[id], prices[id], hidden[id]); err != nil {
 			return resp, err
 		}
 		if _, err := tx.Exec(ctx,
@@ -308,12 +330,6 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	if err := tx.Commit(ctx); err != nil {
 		return resp, err
 	}
-
-	resp.Status = status
-	resp.SubtotalCents = subtotal
-	resp.DeliveryFeeCents = fee
-	resp.TotalCents = subtotal + fee
-	resp.DeliverBy = deliverBy
 	return resp, nil
 }
 

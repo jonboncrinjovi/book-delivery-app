@@ -27,9 +27,6 @@ func notifyNewOrder(pool *pgxpool.Pool, orderID int64) {
 		lat, lon                                                     float64
 		total                                                        int
 	)
-	// the CASE expressions turn codes into readable text:
-	// "пакет, винный" / "пакет, цвет на твой выбор" / "коробка M",
-	// and "Подарок: Маме, День рождения" / "Для себя"
 	err := pool.QueryRow(ctx, `
 		SELECT status::text,
 		       CASE WHEN box_size = 'BAG'
@@ -49,14 +46,13 @@ func notifyNewOrder(pool *pgxpool.Pool, orderID int64) {
 		return
 	}
 
-	var b strings.Builder // efficient way to build a long string piece by piece
+	var b strings.Builder
 	fmt.Fprintf(&b, "Новый заказ #%d (%s)\n", orderID, status)
 	fmt.Fprintf(&b, "%s, %s, до %s\n", packaging, dtype, deliverBy.In(moscow).Format("02.01 15:04"))
 	fmt.Fprintf(&b, "%s\n\n", gift)
 
-	// JOIN: combine each order line with its product, to get names instead of bare IDs
 	rows, err := pool.Query(ctx, `
-		SELECT p.name, i.quantity
+		SELECT p.name, i.quantity, i.hidden
 		FROM order_items i JOIN products p ON p.id = i.product_id
 		WHERE i.order_id = $1 ORDER BY p.name`, orderID)
 	if err != nil {
@@ -66,8 +62,13 @@ func notifyNewOrder(pool *pgxpool.Pool, orderID int64) {
 	for rows.Next() {
 		var name string
 		var q int
-		if err := rows.Scan(&name, &q); err == nil {
-			fmt.Fprintf(&b, "• %s × %d\n", name, q)
+		var hidden bool
+		if err := rows.Scan(&name, &q, &hidden); err == nil {
+			mark := ""
+			if hidden {
+				mark = " (ВСЛЕПУЮ: завернуть в крафт)" // you see the title; the customer doesn't
+			}
+			fmt.Fprintf(&b, "• %s × %d%s\n", name, q, mark)
 		}
 	}
 	rows.Close()
@@ -76,8 +77,8 @@ func notifyNewOrder(pool *pgxpool.Pool, orderID int64) {
 		fmt.Fprintf(&b, "\nОткрытка: «%s»\n", card)
 	}
 	fmt.Fprintf(&b, "\nКому: %s, %s\n%s\n", rName, rPhone, address)
-	fmt.Fprintf(&b, "https://yandex.ru/maps/?pt=%f,%f&z=17\n", lon, lat) // tap to open the pin
-	fmt.Fprintf(&b, "\nИтого: %d,%02d ₽", total/100, total%100)       // cents to rubles,kopecks
+	fmt.Fprintf(&b, "https://yandex.ru/maps/?pt=%f,%f&z=17\n", lon, lat)
+	fmt.Fprintf(&b, "\nИтого: %d,%02d ₽", total/100, total%100)
 
 	if err := tgCall(ctx, token, "sendMessage", map[string]any{
 		"chat_id": chatID, "text": b.String(), "reply_markup": keyboard(orderID, status),

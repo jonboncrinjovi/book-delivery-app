@@ -113,10 +113,11 @@ export default function CartPage() {
       </div>
       <p className="font-sans text-xs text-muted">Без доставки; её посчитаем по адресу.</p>
 
-      <button disabled={overfull}
-        className="mt-6 w-full rounded-full bg-wine px-6 py-4 font-sans text-lg text-paper-2 disabled:opacity-40">
+      {/* a link styled as a button; when the box is overfull it's greyed out and unclickable */}
+      <Link href="/checkout" aria-disabled={overfull}
+        className={`mt-6 block w-full rounded-full bg-wine px-6 py-4 text-center font-sans text-lg text-paper-2 ${overfull ? "pointer-events-none opacity-40" : ""}`}>
         Оформить заказ
-      </button>
+      </Link>
     </div>
   );
 }

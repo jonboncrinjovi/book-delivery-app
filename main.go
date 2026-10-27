@@ -54,6 +54,7 @@ func main() {
 
 	// orders
 	mux.HandleFunc("POST /api/orders", createOrder(pool)) // public: customers place orders
+        mux.HandleFunc("GET /api/track/{token}", trackOrder(pool)) // public, via the secret link
 
         // accounts
 	mux.HandleFunc("GET /api/auth/telegram", telegramAuth(pool))
