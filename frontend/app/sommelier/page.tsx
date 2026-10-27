@@ -1,9 +1,9 @@
 "use client"; // the whole page is interactive: taps, swipes, state
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { addItem } from "@/lib/cart";
 import { useRouter } from "next/navigation";
+import { addItem } from "@/lib/cart";
 
 // shapes of the API's answers (see sommelier.go)
 type Tag = { id: number; name: string; children?: Tag[] };
@@ -17,6 +17,9 @@ type Revealed = {
 };
 type StormWord = { key: number; tag: Tag; size: number; x: number; y: number; rot: number; delay: number };
 
+// lets the page's buttons throw the card too, not only swipes
+type SwipeControl = { fling: (dir: 1 | -1) => void };
+
 const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
 
 // 140 copies of the subtags, scattered at random sizes, positions and angles.
@@ -26,26 +29,27 @@ function makeStorm(subtags: Tag[]): StormWord[] {
   return Array.from({ length: 140 }, (_, i) => ({
     key: i,
     tag: subtags[i % subtags.length],
-    size: 14 + Math.random() * 46,  // 14–60 px
-    x: Math.random() * 88,          // % from the left
-    y: Math.random() * 90,          // % from the top
+    size: 14 + Math.random() * 46,   // 14–60 px
+    x: Math.random() * 88,           // % from the left
+    y: Math.random() * 90,           // % from the top
     rot: (Math.random() - 0.5) * 40, // −20° to +20°
-    delay: Math.random() * 0.8,     // staggered arrival
+    delay: Math.random() * 0.8,      // staggered arrival
   }));
 }
 
 export default function SommelierPage() {
-  // useState: values that, when changed, redraw the page
   const router = useRouter();
+  const swipe = useRef<SwipeControl | null>(null); // handle to the card, so buttons can throw it
+
+  // useState: values that, when changed, redraw the page
   const [anchors, setAnchors] = useState<Tag[]>([]);
-  const [anchor, setAnchor] = useState<Tag | null>(null);   // chosen main genre
-  const [chosen, setChosen] = useState<number[]>([]);       // chosen subtag ids
+  const [anchor, setAnchor] = useState<Tag | null>(null); // chosen main genre
+  const [chosen, setChosen] = useState<number[]>([]);     // chosen subtag ids
   const [storm, setStorm] = useState<StormWord[] | null>(null);
   const [card, setCard] = useState<Masked | null>(null);
   const [revealed, setRevealed] = useState<Revealed | null>(null);
-  const [seen, setSeen] = useState<number[]>([]);           // books already shown, never repeated
+  const [seen, setSeen] = useState<number[]>([]);         // books already shown this round, never repeated
   const [message, setMessage] = useState("");
-  const [added, setAdded] = useState<string | null>(null);
 
   // useEffect with []: run once after the page appears; load the genres
   useEffect(() => {
@@ -63,7 +67,6 @@ export default function SommelierPage() {
     setCard(null);
     setRevealed(null);
     setMessage("");
-    setAdded(null);
   }
 
   function toggleTag(id: number) {
@@ -72,7 +75,6 @@ export default function SommelierPage() {
 
   async function pick(exclude: number[] = seen) {
     const tags = anchor ? [anchor.id, ...chosen] : [];
-    setAdded(null);
     try {
       const res = await fetch(`/api/sommelier/pick?tags=${tags.join(",")}&exclude=${exclude.join(",")}`);
       if (res.status === 404) {
@@ -89,6 +91,7 @@ export default function SommelierPage() {
     }
   }
 
+  // runs after the card has flown off to the left
   function discard() {
     if (!card) return;
     const next = [...seen, card.id];
@@ -102,7 +105,7 @@ export default function SommelierPage() {
     if (res.ok) setRevealed(await res.json());
   }
 
-    async function markRead() {
+  async function markRead() {
     if (!card) return;
     const res = await fetch("/api/me/reads", {
       method: "POST",
@@ -113,9 +116,10 @@ export default function SommelierPage() {
       setMessage("Войди в аккаунт, и сомелье запомнит прочитанное");
       return;
     }
-    discard(); // read already: on to the next book
+    swipe.current?.fling(-1); // read already: throw it away
   }
 
+  // runs after the card has flown off to the right
   function accept() {
     if (!card) return;
     addItem({
@@ -126,7 +130,7 @@ export default function SommelierPage() {
       slots: 2, // a typical book; the server checks the real number at checkout
       hidden: !revealed,
     });
-    router.push('/sommelier/next?book=${card.id}');
+    router.push(`/sommelier/next?book=${card.id}`); // on to "для себя или в подарок?"
   }
 
   const subtags = anchor?.children ?? [];
@@ -165,16 +169,10 @@ export default function SommelierPage() {
 
       {message && <p className="mt-6 text-center font-sans text-sm text-muted">{message}</p>}
 
-      {added && (
-        <div className="mt-6 rounded-2xl border border-line bg-paper-2 p-4 text-center">
-          <p>«{added}» в корзине.</p>
-          <p className="mt-1 font-sans text-sm text-muted">Скоро сомелье подберёт к ней напиток и закуску.</p>
-        </div>
-      )}
-
       {card && (
         <div className="mt-6">
-          <SwipeCard onLeft={discard} onRight={accept}>
+          {/* key={card.id}: every new book gets a brand-new card, starting centred */}
+          <SwipeCard key={card.id} control={swipe} onLeft={discard} onRight={accept}>
             <div className="overflow-hidden rounded-3xl border border-line bg-paper-2">
               {image ? (
                 // draggable={false}: stops the browser's own image dragging from fighting the swipe
@@ -212,13 +210,17 @@ export default function SommelierPage() {
           </div>
 
           <div className="mt-5 flex items-center justify-between font-sans">
-            <button onClick={discard} aria-label="Пропустить" className="size-14 rounded-full border border-line text-xl">✕</button>
+            <button onClick={() => swipe.current?.fling(-1)} aria-label="Пропустить"
+              className="size-14 rounded-full border border-line text-xl">✕</button>
             {!revealed && (
               <button onClick={reveal} className="rounded-full border border-wine px-6 py-3 text-wine">Раскрыть</button>
             )}
-            <button onClick={accept} aria-label="В корзину" className="size-14 rounded-full bg-wine text-xl text-paper-2">♥</button>
+            <button onClick={() => swipe.current?.fling(1)} aria-label="В корзину"
+              className="size-14 rounded-full bg-wine text-xl text-paper-2">♥</button>
           </div>
-                    {revealed && (
+
+          {/* outside the card on purpose: the card captures the pointer, so buttons inside it never get clicks */}
+          {revealed && (
             <button onClick={markRead} className="mt-4 block w-full text-center font-sans text-sm text-wine underline">
               Уже читал, не предлагать
             </button>
@@ -257,35 +259,74 @@ function Chip({ active, onClick, children }: { active?: boolean; onClick: () => 
   );
 }
 
-// SwipeCard follows the finger (or mouse); released far enough left or right, it triggers the action
-function SwipeCard({ onLeft, onRight, children }: { onLeft: () => void; onRight: () => void; children: ReactNode }) {
-  const [startX, setStartX] = useState<number | null>(null); // where the drag began; null = not dragging
-  const [dx, setDx] = useState(0);                            // how far it has moved
+// SwipeCard follows the finger; a long enough drag or a fast enough flick throws it off screen,
+// and only once it's gone does the action run
+function SwipeCard({ onLeft, onRight, control, children }: {
+  onLeft: () => void;
+  onRight: () => void;
+  control?: { current: SwipeControl | null };
+  children: ReactNode;
+}) {
+  const [startX, setStartX] = useState<number | null>(null);                    // drag start; null = not dragging
+  const [dx, setDx] = useState(0);                                               // current drag distance
+  const [flying, setFlying] = useState<{ x: number; ms: number } | null>(null); // set once the card is thrown
+  // the latest position, time and speed (pixels per millisecond), for detecting a flick.
+  // useRef: remembered between renders, but changing it doesn't redraw anything
+  const last = useRef({ x: 0, t: 0, v: 0 });
 
-  function end() {
-    if (dx > 110) onRight();
-    else if (dx < -110) onLeft();
-    setStartX(null);
-    setDx(0); // springs back (or the next card appears)
+  function fling(dir: 1 | -1, force = 1) {
+    if (flying) return;
+    // more force → a shorter, sharper flight
+    const ms = Math.max(160, Math.min(420, 420 / force));
+    setFlying({ x: dir * window.innerWidth * 1.5, ms }); // well past the screen edge
+    setTimeout(() => (dir === 1 ? onRight() : onLeft()), ms); // act once it has left
   }
 
+  // give the parent a way to call fling (for the ✕ and ♥ buttons)
+  useEffect(() => {
+    if (control) control.current = { fling };
+  });
+
+  function end(timeStamp: number) {
+    if (startX === null) return;
+    // a finger that stopped moving before letting go isn't flicking
+    const v = timeStamp - last.current.t > 100 ? 0 : last.current.v;
+    const force = Math.max(1, Math.abs(v) * 1.5);
+    const flick = Math.abs(v) > 0.6;
+    if (dx > 110 || (flick && v > 0)) fling(1, force);
+    else if (dx < -110 || (flick && v < 0)) fling(-1, force);
+    else setDx(0); // not enough: spring back
+    setStartX(null);
+  }
+
+  const x = flying ? flying.x : dx;
   return (
     <div
-      // pointer events cover mouse, touch and pen alike
       onPointerDown={(e) => {
+        if (flying) return;
         setStartX(e.clientX);
+        last.current = { x: e.clientX, t: e.timeStamp, v: 0 };
         e.currentTarget.setPointerCapture(e.pointerId); // keep receiving moves even if the finger leaves the card
       }}
       onPointerMove={(e) => {
-        if (startX !== null) setDx(e.clientX - startX);
+        if (startX === null) return;
+        const dt = e.timeStamp - last.current.t;
+        if (dt > 0) last.current = { x: e.clientX, t: e.timeStamp, v: (e.clientX - last.current.x) / dt };
+        setDx(e.clientX - startX);
       }}
-      onPointerUp={end}
+      onPointerUp={(e) => end(e.timeStamp)}
       onPointerCancel={() => {
         setStartX(null);
         setDx(0);
       }}
-      // tilt a little in the swipe direction; animate only the spring-back, not the drag itself
-      style={{ transform: `translateX(${dx}px) rotate(${dx / 18}deg)`, transition: startX === null ? "transform 0.25s" : "none" }}
+      style={{
+        transform: `translateX(${x}px) rotate(${x / 18}deg)`,
+        // flight: accelerating curve, like something thrown; drag: none (follows the finger exactly);
+        // spring-back: a short ease
+        transition: flying
+          ? `transform ${flying.ms}ms cubic-bezier(.4,0,1,1)`
+          : startX === null ? "transform 0.25s" : "none",
+      }}
       // touch-pan-y: vertical scrolling stays with the browser, horizontal movement is ours
       className="touch-pan-y select-none"
     >
