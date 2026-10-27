@@ -139,7 +139,7 @@ func listCards(pool *pgxpool.Pool) http.HandlerFunc {
 }
 
 var validCategories = map[string]bool{
-	"book": true, "drink": true, "snack": true, "flowers": true, "stationery": true, "other": true,
+	"book": true, "drink": true, "snack": true, "flowers": true, "stationery": true, "games": true, "souvenirs": true, "other": true,
 }
 
 func createProduct(pool *pgxpool.Pool) http.HandlerFunc {
@@ -151,7 +151,7 @@ func createProduct(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		switch {
 		case !validCategories[p.Category]:
-			http.Error(w, "category must be book, drink, snack, flowers, stationery or other", http.StatusBadRequest)
+			http.Error(w, "category must be book, drink, snack, flowers, stationery, games, souvenirs or other", http.StatusBadRequest)
 			return
 		case p.Name == "" || p.PriceCents < 0 || p.Stock < 0 || p.Slots <= 0:
 			http.Error(w, "name required; price and stock >= 0; slots > 0", http.StatusBadRequest)
