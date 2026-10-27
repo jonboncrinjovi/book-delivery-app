@@ -91,7 +91,10 @@ func createOrder(pool *pgxpool.Pool) http.HandlerFunc {
 		case err != nil:
 			http.Error(w, "could not place order", http.StatusInternalServerError)
 		default:
-			go notifyNewOrder(pool, resp.ID) // "go" = run in the background, don't wait for it
+			if uid := userID(r.Context(), pool, r); uid != 0 {
+				pool.Exec(r.Context(), `UPDATE orders SET user_id = $1 WHERE id = $2`, uid, resp.ID)
+			}
+                        go notifyNewOrder(pool, resp.ID) // "go" = run in the background, don't wait for it
 			writeJSON(w, http.StatusCreated, resp)
 		}
 	}

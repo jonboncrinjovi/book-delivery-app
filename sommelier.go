@@ -112,7 +112,12 @@ func pickBook(pool *pgxpool.Pool) http.HandlerFunc {
 			http.Error(w, "tags and exclude must be comma-separated numbers", http.StatusBadRequest)
 			return
 		}
-		ctx := r.Context()
+		if uid := userID(r.Context(), pool, r); uid != 0 {
+			if more, err := userExcludedBooks(r.Context(), pool, uid); err == nil {
+				exclude = append(exclude, more...)
+			}
+		}
+                ctx := r.Context()
 
 		var c MaskedCard
 		// LEFT JOIN keeps every candidate book, attaching only the tag rows that match;

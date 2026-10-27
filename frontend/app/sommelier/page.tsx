@@ -102,6 +102,20 @@ export default function SommelierPage() {
     if (res.ok) setRevealed(await res.json());
   }
 
+    async function markRead() {
+    if (!card) return;
+    const res = await fetch("/api/me/reads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ product_id: card.id }),
+    });
+    if (res.status === 401) {
+      setMessage("Войди в аккаунт, и сомелье запомнит прочитанное");
+      return;
+    }
+    discard(); // read already: on to the next book
+  }
+
   function accept() {
     if (!card) return;
     addItem({
@@ -204,6 +218,11 @@ export default function SommelierPage() {
             )}
             <button onClick={accept} aria-label="В корзину" className="size-14 rounded-full bg-wine text-xl text-paper-2">♥</button>
           </div>
+                    {revealed && (
+            <button onClick={markRead} className="mt-4 block w-full text-center font-sans text-sm text-wine underline">
+              Уже читал, не предлагать
+            </button>
+          )}
           <p className="mt-3 text-center font-sans text-xs text-muted">Свайп вправо: в корзину. Влево: дальше.</p>
         </div>
       )}

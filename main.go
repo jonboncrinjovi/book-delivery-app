@@ -55,6 +55,14 @@ func main() {
 	// orders
 	mux.HandleFunc("POST /api/orders", createOrder(pool)) // public: customers place orders
 
+        // accounts
+	mux.HandleFunc("GET /api/auth/telegram", telegramAuth(pool))
+	mux.HandleFunc("POST /api/logout", logout(pool))
+	mux.HandleFunc("GET /api/me", requireUser(pool, getMe(pool)))
+	mux.HandleFunc("PUT /api/me", requireUser(pool, updateMe(pool)))
+	mux.HandleFunc("POST /api/me/reads", requireUser(pool, addRead(pool)))
+	mux.HandleFunc("DELETE /api/me/reads/{id}", requireUser(pool, deleteRead(pool)))
+
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
 
