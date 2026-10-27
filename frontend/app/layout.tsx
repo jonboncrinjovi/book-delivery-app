@@ -33,16 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Image src="/logo.png" alt="" width={44} height={44} className="rounded-full" />
             <span className="text-lg font-bold">Книжки и винишко</span>
           </Link>
-                    <div className="flex items-center gap-2">
-            <Link href="/account" aria-label="Аккаунт"
-              className="flex size-10 items-center justify-center rounded-full border border-line">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 21a8 8 0 0 1 16 0" />
-              </svg>
-            </Link>
             <ThemeToggle />
-          </div>
         </header>
         {/* max-w-md: a phone-width column, centred on big screens; pb-28 leaves room for the bar */}
         <main className="mx-auto max-w-md px-4 pb-28">{children}</main>
