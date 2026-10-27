@@ -12,20 +12,42 @@ export type CartItem = {
   hidden?: boolean; // a blind-date book: stays a surprise until delivery
 };
 
-export type Cart = { items: CartItem[] };
+export type GiftInfo = {
+  gift: boolean;
+  recipient?: string;     // code, e.g. "mom"
+  recipientName?: string; // "Маме", for display
+  occasion?: string;
+  occasionName?: string;
+};
+
+export type CardChoice = {
+  id?: number;   // design id; none = a plain card you sign by hand
+  name?: string;
+  price_cents: number;
+  text: string;
+};
+
+export type Cart = {
+  items: CartItem[];
+  gift?: GiftInfo;
+  card?: CardChoice;
+  box: string;        // packaging code: "BAG" by default, or "S", "M", "L", "CUSTOM"
+  bag: string | null; // bag colour code; null = "удиви меня"
+};
 
 const KEY = "kiv-cart";
-const EMPTY: Cart = { items: [] };
+const EMPTY: Cart = { items: [], box: "BAG", bag: null };
 
-let cache: Cart | null = null;            // in-memory copy, so we don't re-parse on every render
-const listeners = new Set<() => void>();  // components waiting to hear about changes
+let cache: Cart | null = null;
+const listeners = new Set<() => void>();
 
 function read(): Cart {
   if (cache) return cache;
   try {
-    cache = JSON.parse(localStorage.getItem(KEY) ?? "null") ?? EMPTY;
+    // spread EMPTY first, so carts saved by older versions get the new fields' defaults
+    cache = { ...EMPTY, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {
-    cache = EMPTY; // storage blocked or corrupted: start empty rather than crash
+    cache = EMPTY;
   }
   return cache as Cart;
 }
@@ -35,7 +57,7 @@ function write(c: Cart) {
   try {
     localStorage.setItem(KEY, JSON.stringify(c));
   } catch {}
-  listeners.forEach((notify) => notify()); // tell every component to re-render
+  listeners.forEach((notify) => notify());
 }
 
 function subscribe(listener: () => void) {
@@ -45,8 +67,6 @@ function subscribe(listener: () => void) {
   };
 }
 
-// useSyncExternalStore: React's way to read outside data (here: localStorage) safely.
-// The third argument is what the server renders, since it has no localStorage: an empty cart.
 export function useCart(): Cart {
   return useSyncExternalStore(subscribe, read, () => EMPTY);
 }
@@ -62,7 +82,27 @@ export function addItem(item: Omit<CartItem, "qty">) {
   });
 }
 
-export function removeItem(id: number) {
+// qty 0 or less removes the item
+export function setQty(id: number, qty: number) {
   const c = read();
-  write({ ...c, items: c.items.filter((i) => i.id !== id) });
+  write({
+    ...c,
+    items: qty <= 0 ? c.items.filter((i) => i.id !== id) : c.items.map((i) => (i.id === id ? { ...i, qty } : i)),
+  });
+}
+
+export function setGift(gift: GiftInfo) {
+  write({ ...read(), gift });
+}
+
+export function setCard(card: CardChoice | undefined) {
+  write({ ...read(), card });
+}
+
+export function setPackaging(box: string, bag: string | null) {
+  write({ ...read(), box, bag: box === "BAG" ? bag : null });
+}
+
+export function clearCart() {
+  write(EMPTY);
 }

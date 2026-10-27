@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { addItem } from "@/lib/cart";
+import { useRouter } from "next/navigation";
 
 // shapes of the API's answers (see sommelier.go)
 type Tag = { id: number; name: string; children?: Tag[] };
@@ -35,6 +36,7 @@ function makeStorm(subtags: Tag[]): StormWord[] {
 
 export default function SommelierPage() {
   // useState: values that, when changed, redraw the page
+  const router = useRouter();
   const [anchors, setAnchors] = useState<Tag[]>([]);
   const [anchor, setAnchor] = useState<Tag | null>(null);   // chosen main genre
   const [chosen, setChosen] = useState<number[]>([]);       // chosen subtag ids
@@ -110,9 +112,7 @@ export default function SommelierPage() {
       slots: 2, // a typical book; the server checks the real number at checkout
       hidden: !revealed,
     });
-    setSeen([...seen, card.id]);
-    setCard(null);
-    setAdded(revealed ? revealed.name : "Книга-сюрприз");
+    router.push('/sommelier/next?book=${card.id}');
   }
 
   const subtags = anchor?.children ?? [];
