@@ -32,13 +32,13 @@ func main() {
 	}
 
 	admin := os.Getenv("ADMIN_TOKEN")
-
 	mux := http.NewServeMux()
 
 	// catalogue
 	mux.HandleFunc("GET /api/health", health(pool))
 	mux.HandleFunc("GET /api/products", listProducts(pool))
 	mux.HandleFunc("POST /api/products", requireAdmin(admin, createProduct(pool)))
+	mux.HandleFunc("GET /api/search", searchProducts(pool))
 	mux.HandleFunc("GET /api/box-sizes", listBoxSizes(pool))
 	mux.HandleFunc("GET /api/bag-colors", listBagColors(pool))
 	mux.HandleFunc("GET /api/designs", listDesigns(pool))
@@ -49,14 +49,14 @@ func main() {
 	// sommelier
 	mux.HandleFunc("GET /api/tags", listTags(pool))
 	mux.HandleFunc("GET /api/sommelier/pick", pickBook(pool))
-	mux.HandleFunc("GET /api/sommelier/reveal/{id}", revealBook(pool)) // {id} = a path parameter
+	mux.HandleFunc("GET /api/sommelier/reveal/{id}", revealBook(pool))
 	mux.HandleFunc("GET /api/sommelier/pair", pairProduct(pool))
 
 	// orders
-	mux.HandleFunc("POST /api/orders", createOrder(pool)) // public: customers place orders
-        mux.HandleFunc("GET /api/track/{token}", trackOrder(pool)) // public, via the secret link
+	mux.HandleFunc("POST /api/orders", createOrder(pool))        // public: customers place orders
+	mux.HandleFunc("GET /api/track/{token}", trackOrder(pool))   // public, via the secret link
 
-        // accounts
+	// accounts
 	mux.HandleFunc("GET /api/auth/telegram", telegramAuth(pool))
 	mux.HandleFunc("POST /api/logout", logout(pool))
 	mux.HandleFunc("GET /api/me", requireUser(pool, getMe(pool)))
@@ -87,7 +87,6 @@ func migrate(pool *pgxpool.Pool) error {
 func requireAdmin(token string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		got := r.Header.Get("X-Admin-Token")
-		// constant-time comparison, so response timing doesn't leak how much of the token matched
 		if token == "" || subtle.ConstantTimeCompare([]byte(got), []byte(token)) != 1 {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

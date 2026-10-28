@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-// a stroke icon from one or more SVG path strings; color comes from the text color
 function Icon({ paths, size = 24 }: { paths: string[]; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -16,37 +15,33 @@ function Icon({ paths, size = 24 }: { paths: string[]; size?: number }) {
 type Tab = { href: string; label: string; icon: ReactNode; center?: boolean };
 
 const tabs: Tab[] = [
-  // catalogue = the landing page: search, announcements, categories
-  { href: "/", label: "Каталог", icon: <Icon paths={["M4 4h7v7H4z", "M13 4h7v7h-7z", "M4 13h7v7H4z", "M13 13h7v7h-7z"]} /> },
-  // profile as a library card: card outline, a photo square, two text lines
+  { href: "/search", label: "Поиск", icon: <Icon paths={["M11 4a7 7 0 1 1 0 14a7 7 0 0 1 0-14z", "M20 20l-4-4"]} /> },
+  // profile as a library card
   { href: "/account", label: "Профиль", icon: <Icon paths={[
     "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z",
     "M6 9h4v5H6z", "M13 10h5", "M13 14h4",
   ]} /> },
-  // the sommelier: a butler holding out a tray with a bottle and a glass (placeholder art)
-  { href: "/sommelier", label: "Сомелье", center: true, icon: <Icon size={34} paths={[
-    "M7 3.5a2 2 0 1 1 0 4a2 2 0 0 1 0-4z",       // head
-    "M4 21v-8a3 3 0 0 1 6 0v8",                  // body
-    "M10 13h4",                                  // arm reaching out
-    "M13 12h9",                                  // the tray
-    "M15.5 12V8.5l.5-1V6h1v1.5l.5 1V12",         // bottle
-    "M19.5 8h2l-.3 1.6a.7.7 0 0 1-1.4 0z",       // glass bowl
-    "M20.5 10.2V12",                             // glass stem
+  // the butler is the home page (placeholder icon until the real drawing)
+  { href: "/", label: "Сомелье", center: true, icon: <Icon size={34} paths={[
+    "M7 3.5a2 2 0 1 1 0 4a2 2 0 0 1 0-4z",
+    "M4 21v-8a3 3 0 0 1 6 0v8",
+    "M10 13h4",
+    "M13 12h9",
+    "M15.5 12V8.5l.5-1V6h1v1.5l.5 1V12",
+    "M19.5 8h2l-.3 1.6a.7.7 0 0 1-1.4 0z",
+    "M20.5 10.2V12",
   ]} /> },
   { href: "/reviews", label: "Рецензии", icon: <Icon paths={["M4 5h16v11H8l-4 4z"]} /> },
   { href: "/cart", label: "Корзина", icon: <Icon paths={["M5 8h14l-1 13H6z", "M9 8V6a3 3 0 0 1 6 0v2"]} /> },
 ];
 
 export default function BottomNav() {
-  const path = usePathname(); // the current address, e.g. "/cart"
+  const path = usePathname();
 
   return (
-    // fixed to the bottom; the env() padding keeps it above the iPhone home bar
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-paper-2/95 backdrop-blur">
       <ul className="mx-auto flex max-w-md items-end justify-around px-2 pb-[env(safe-area-inset-bottom)]">
         {tabs.map((t) => {
-          // "/" only counts as active on the landing page itself, the others for their whole section
-          const active = t.href === "/" ? path === "/" : path.startsWith(t.href);
           if (t.center) {
             return (
               <li key={t.href} className="-mt-7">
@@ -57,6 +52,7 @@ export default function BottomNav() {
               </li>
             );
           }
+          const active = path.startsWith(t.href);
           return (
             <li key={t.href}>
               <Link href={t.href}

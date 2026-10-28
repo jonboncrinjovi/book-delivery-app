@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addItem, setCard, setGift } from "@/lib/cart";
+import { addItem, setCard, setGift, useCart } from "@/lib/cart";
 
 type Choice = { code: string; name: string };
 type Suggestion = {
@@ -21,14 +21,14 @@ const pairTitles: Record<Pairing, string> = {
   flowers: "И цветы, чтобы точно запомнилось",
 };
 
-// the route through the questions depends on the first answer
 const routes: Record<"self" | "gift", Step[]> = {
   self: ["who", "drink", "snack"],
   gift: ["who", "recipient", "occasion", "drink", "snack", "flowers", "card"],
 };
 
 export default function Wizard({ bookId }: { bookId: number }) {
-  const router = useRouter(); // lets code navigate, like clicking a link
+  const router = useRouter();
+  const cart = useCart();
   const [route, setRoute] = useState<Step[]>(routes.self);
   const [step, setStep] = useState<Step>("who");
   const [recipients, setRecipients] = useState<Choice[]>([]);
@@ -36,12 +36,21 @@ export default function Wizard({ bookId }: { bookId: number }) {
   const [recipient, setRecipient] = useState<Choice | null>(null);
   const [occasion, setOccasion] = useState<string | undefined>();
 
+  // if the butler already asked "для себя или в подарок" (and for whom, and why), skip straight to the drink.
+  // This runs after the cart has loaded from the browser's storage.
+  useEffect(() => {
+    if (step !== "who" || !cart.gift) return;
+    setRoute(cart.gift.gift ? routes.gift : routes.self);
+    setOccasion(cart.gift.occasion);
+    setStep("drink");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.gift]);
+
   useEffect(() => {
     fetch("/api/recipients").then((r) => r.json()).then(setRecipients).catch(() => {});
     fetch("/api/occasions").then((r) => r.json()).then(setOccasions).catch(() => {});
   }, []);
 
-  // move to the step after the current one; after the last, to the cart
   function next(r: Step[] = route) {
     const i = r.indexOf(step);
     if (i + 1 < r.length) setStep(r[i + 1]);
@@ -100,7 +109,6 @@ export default function Wizard({ bookId }: { bookId: number }) {
       )}
 
       {(step === "drink" || step === "snack" || step === "flowers") && (
-        // key={step}: a new step gets a fresh PairStep, with its own empty "already shown" list
         <PairStep key={step} bookId={bookId} category={step} occasion={occasion}
           title={pairTitles[step]} onDone={() => next()} />
       )}
@@ -118,7 +126,7 @@ function PairStep({ bookId, category, occasion, title, onDone }: {
   bookId: number; category: Pairing; occasion?: string; title: string; onDone: () => void;
 }) {
   const [s, setS] = useState<Suggestion | null>(null);
-  const [excluded, setExcluded] = useState<number[]>([]); // "Предложи ещё" adds the current one here
+  const [excluded, setExcluded] = useState<number[]>([]);
   const [empty, setEmpty] = useState(false);
 
   // runs again whenever excluded changes: that IS the "Предложи ещё" button
