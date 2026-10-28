@@ -2,3 +2,4 @@
 media/
 catalog/*
 !catalog/books-template.csv
+frontend/public/music/
