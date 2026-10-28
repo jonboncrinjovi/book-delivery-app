@@ -15,7 +15,6 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-// bake the migration files into the binary, so the container needs nothing else
 //go:embed migrations/*.sql
 var migrations embed.FS
 
@@ -26,7 +25,6 @@ func main() {
 	}
 	defer pool.Close()
 
-	// bring the schema up to date on every start; already-applied migrations are skipped
 	if err := migrate(pool); err != nil {
 		log.Fatal(err)
 	}
@@ -53,8 +51,18 @@ func main() {
 	mux.HandleFunc("GET /api/sommelier/pair", pairProduct(pool))
 
 	// orders
-	mux.HandleFunc("POST /api/orders", createOrder(pool))        // public: customers place orders
-	mux.HandleFunc("GET /api/track/{token}", trackOrder(pool))   // public, via the secret link
+	mux.HandleFunc("POST /api/orders", createOrder(pool))
+	mux.HandleFunc("GET /api/track/{token}", trackOrder(pool))
+
+	// book reviews
+	mux.HandleFunc("GET /api/reviews", listReviews(pool))
+	mux.HandleFunc("GET /api/reviews/activity", reviewActivity(pool))
+	mux.HandleFunc("POST /api/reviews", requireUser(pool, createReview(pool)))
+	mux.HandleFunc("POST /api/reviews/{id}/vote", requireUser(pool, voteReview(pool)))
+
+	// service reviews
+	mux.HandleFunc("GET /api/service-reviews", listServiceReviews(pool))
+	mux.HandleFunc("POST /api/service-reviews", requireUser(pool, createServiceReview(pool)))
 
 	// accounts
 	mux.HandleFunc("GET /api/auth/telegram", telegramAuth(pool))
@@ -63,18 +71,20 @@ func main() {
 	mux.HandleFunc("PUT /api/me", requireUser(pool, updateMe(pool)))
 	mux.HandleFunc("POST /api/me/reads", requireUser(pool, addRead(pool)))
 	mux.HandleFunc("DELETE /api/me/reads/{id}", requireUser(pool, deleteRead(pool)))
+	mux.HandleFunc("GET /api/me/reviewable", requireUser(pool, reviewableBooks(pool)))
+	mux.HandleFunc("GET /api/me/reviewable-orders", requireUser(pool, reviewableOrders(pool)))
 
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
 
-	go runBot(pool) // background loop waiting for Telegram button taps
+	go runBot(pool)
 
 	log.Println("listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
 func migrate(pool *pgxpool.Pool) error {
-	db := stdlib.OpenDBFromPool(pool) // goose speaks database/sql; this adapts the pgx pool to it
+	db := stdlib.OpenDBFromPool(pool)
 	defer db.Close()
 	goose.SetBaseFS(migrations)
 	if err := goose.SetDialect("postgres"); err != nil {
@@ -83,7 +93,6 @@ func migrate(pool *pgxpool.Pool) error {
 	return goose.Up(db, "migrations")
 }
 
-// requireAdmin wraps a handler: requests without the correct X-Admin-Token header get 401
 func requireAdmin(token string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		got := r.Header.Get("X-Admin-Token")

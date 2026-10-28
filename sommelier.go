@@ -13,7 +13,7 @@ import (
 type Tag struct {
 	ID       int64  `json:"id"`
 	Name     string `json:"name"`
-	Children []Tag  `json:"children,omitempty"` // subtags; only anchors have them
+	Children []Tag  `json:"children,omitempty"`
 }
 
 // what the phone gets before "Раскрыть": no title, no author, no real cover
@@ -23,10 +23,9 @@ type MaskedCard struct {
 	CoverBlur  *string  `json:"cover_blur"`
 	Hints      []string `json:"hints"`
 	Tags       []string `json:"tags"`
-	Quotes     []string `json:"quotes"`
+	Quotes     []string `json:"quotes"` // the three magi: best reviews first, quotes fill the gaps
 }
 
-// what it gets after
 type RevealedCard struct {
 	ID          int64   `json:"id"`
 	Name        string  `json:"name"`
@@ -37,7 +36,6 @@ type RevealedCard struct {
 	PriceCents  int     `json:"price_cents"`
 }
 
-// a sommelier suggestion for one pairing step
 type Suggestion struct {
 	ID          int64   `json:"id"`
 	Category    string  `json:"category"`
@@ -46,10 +44,9 @@ type Suggestion struct {
 	PriceCents  int     `json:"price_cents"`
 	Slots       int     `json:"slots"`
 	Image       *string `json:"image"`
-	Note        string  `json:"note"` // the sommelier's line; empty when it's a fallback pick
+	Note        string  `json:"note"`
 }
 
-// listTags returns anchors, each with its subtags nested inside
 func listTags(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `SELECT id, name, parent_id FROM tags ORDER BY name`)
@@ -60,7 +57,7 @@ func listTags(pool *pgxpool.Pool) http.HandlerFunc {
 		defer rows.Close()
 
 		var anchors []Tag
-		children := map[int64][]Tag{} // anchor id → its subtags
+		children := map[int64][]Tag{}
 		for rows.Next() {
 			var t Tag
 			var parent *int64
@@ -74,7 +71,6 @@ func listTags(pool *pgxpool.Pool) http.HandlerFunc {
 				children[*parent] = append(children[*parent], t)
 			}
 		}
-		// second pass: hang each anchor's subtags on it
 		for i := range anchors {
 			anchors[i].Children = children[anchors[i].ID]
 		}
@@ -85,8 +81,6 @@ func listTags(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// parseIDs turns "3,7,12" into [3 7 12]. Always returns a non-nil slice:
-// pgx sends a nil slice as SQL NULL, which would break the queries below.
 func parseIDs(s string) ([]int64, error) {
 	ids := []int64{}
 	for _, part := range strings.Split(s, ",") {
@@ -103,7 +97,6 @@ func parseIDs(s string) ([]int64, error) {
 }
 
 // pickBook: GET /api/sommelier/pick?tags=1,6&exclude=12,17
-// books matching more of the chosen tags win; ties are broken at random
 func pickBook(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tags, err1 := parseIDs(r.URL.Query().Get("tags"))
@@ -112,16 +105,15 @@ func pickBook(pool *pgxpool.Pool) http.HandlerFunc {
 			http.Error(w, "tags and exclude must be comma-separated numbers", http.StatusBadRequest)
 			return
 		}
+		// logged-in readers never get books they've read, bought, or tagged "не предлагать"
 		if uid := userID(r.Context(), pool, r); uid != 0 {
 			if more, err := userExcludedBooks(r.Context(), pool, uid); err == nil {
 				exclude = append(exclude, more...)
 			}
 		}
-                ctx := r.Context()
+		ctx := r.Context()
 
 		var c MaskedCard
-		// LEFT JOIN keeps every candidate book, attaching only the tag rows that match;
-		// count(bt.tag_id) is then "how many chosen tags this book has"
 		err := pool.QueryRow(ctx, `
 			SELECT p.id
 			FROM products p
@@ -141,7 +133,6 @@ func pickBook(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// || joins text; NULL stays NULL, so books without a cover send null
 		err = pool.QueryRow(ctx, `
 			SELECT price_cents, '/api/media/' || cover_blur_path, hints
 			FROM products WHERE id = $1`, c.ID).Scan(&c.PriceCents, &c.CoverBlur, &c.Hints)
@@ -150,7 +141,6 @@ func pickBook(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// tag names, anchors first
 		rows, err := pool.Query(ctx, `
 			SELECT t.name FROM book_tags bt JOIN tags t ON t.id = bt.tag_id
 			WHERE bt.product_id = $1 ORDER BY t.parent_id NULLS FIRST, t.name`, c.ID)
@@ -162,18 +152,12 @@ func pickBook(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// up to three quotes, different ones each time
-		rows, err = pool.Query(ctx, `
-			SELECT text FROM book_quotes WHERE product_id = $1 ORDER BY random() LIMIT 3`, c.ID)
-		if err == nil {
-			c.Quotes, err = pgx.CollectRows(rows, pgx.RowTo[string])
-		}
-		if err != nil {
+		// the three magi (see reviews.go)
+		if c.Quotes, err = magiLines(ctx, pool, c.ID); err != nil {
 			http.Error(w, "query failed", http.StatusInternalServerError)
 			return
 		}
 
-		// [] instead of null for empty lists, so the frontend never has to check
 		for _, s := range []*[]string{&c.Hints, &c.Tags, &c.Quotes} {
 			if *s == nil {
 				*s = []string{}
@@ -183,10 +167,9 @@ func pickBook(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// revealBook: GET /api/sommelier/reveal/{id}
 func revealBook(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64) // {id} from the route pattern
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 		if err != nil {
 			http.Error(w, "bad id", http.StatusBadRequest)
 			return
@@ -210,8 +193,6 @@ func revealBook(pool *pgxpool.Pool) http.HandlerFunc {
 
 var pairable = map[string]bool{"drink": true, "snack": true, "flowers": true}
 
-// pairProduct: GET /api/sommelier/pair?book=12&category=flowers&occasion=birthday&exclude=4,9
-// ranking: fits the occasion → paired with the book's genre → anything else, random within each
 func pairProduct(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
@@ -232,7 +213,6 @@ func pairProduct(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		var s Suggestion
-		// the inner SELECT finds the book's anchor genres (tags without a parent)
 		err = pool.QueryRow(r.Context(), `
 			SELECT p.id, p.category::text, p.name, p.description, p.price_cents, p.slots,
 			       '/api/media/' || p.cover_path, coalesce(max(pr.note), '')
@@ -259,8 +239,6 @@ func pairProduct(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// mediaHandler serves image files from dir, but refuses folder listings,
-// so nobody can browse the covers folder to find originals
 func mediaHandler(dir string) http.Handler {
 	files := http.FileServer(http.Dir(dir))
 	return http.StripPrefix("/api/media/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
