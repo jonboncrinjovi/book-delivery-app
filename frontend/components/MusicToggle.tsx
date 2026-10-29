@@ -52,7 +52,7 @@ export default function MusicToggle() {
     <>
       <audio ref={audio} src="/music/cafe-jazz.mp3" loop preload="none" />
       <button onClick={toggle} aria-label={playing ? "Выключить музыку" : "Включить музыку"}
-        className="flex size-10 items-center justify-center rounded-full border border-line">
+        className="flex size-10 items-center justify-center rounded-full">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 9h4l5-4v14l-5-4H4z" />
           {playing ? (

@@ -24,6 +24,7 @@ services:
       ADMIN_TOKEN: ${ADMIN_TOKEN}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      WEATHER_UA: ${WEATHER_UA}
     ports:
       - "127.0.0.1:8080:8080" 
     depends_on:

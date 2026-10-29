@@ -24,19 +24,28 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-dvh font-serif">
-        <header className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
-          <Link href="/" className="flex items-center gap-3">
-            <Image src="/logo.png" alt="" width={44} height={44} className="rounded-full" />
-            <span className="text-lg font-bold">Книжки и винишко</span>
+      {/* h-dvh: exactly the visible screen height (dvh adapts when mobile browser bars appear and hide);
+          overflow-hidden: the page itself can never scroll */}
+      <body className="flex h-dvh flex-col overflow-hidden font-serif">
+        <header className="mx-auto grid w-full max-w-md shrink-0 grid-cols-[2.5rem_1fr_2.5rem] items-center px-3 py-2 text-on-chrome">
+          <MusicToggle />
+          <Link href="/" className="flex items-center justify-center gap-2 text-2xl">
+            <span>Книжки</span>
+            <Image src="/logo.png" alt="" width={36} height={36} className="rounded-full" />
+            <span>Винишко</span>
           </Link>
-          {/* the layout stays mounted while pages change, so the music plays on across the site */}
-          <div className="flex items-center gap-2">
-            <MusicToggle />
-            <ThemeToggle />
-          </div>
+          <ThemeToggle />
         </header>
-        <main className="mx-auto max-w-md px-4 pb-28">{children}</main>
+
+        {/* the card takes all the height between header and bar (flex-1).
+            min-h-0 lets it shrink below its content's height; overflow-y-auto means a page that is
+            too long for now scrolls INSIDE the card while the frame stays still */}
+        <main className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-3 pb-3">
+          <div className="card min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-3xl border border-line p-3 shadow-lg">
+            {children}
+          </div>
+        </main>
+
         <BottomNav />
       </body>
     </html>

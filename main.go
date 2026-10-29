@@ -37,6 +37,7 @@ func main() {
 	mux.HandleFunc("GET /api/products", listProducts(pool))
 	mux.HandleFunc("POST /api/products", requireAdmin(admin, createProduct(pool)))
 	mux.HandleFunc("GET /api/search", searchProducts(pool))
+	mux.HandleFunc("GET /api/today", today(pool))
 	mux.HandleFunc("GET /api/box-sizes", listBoxSizes(pool))
 	mux.HandleFunc("GET /api/bag-colors", listBagColors(pool))
 	mux.HandleFunc("GET /api/designs", listDesigns(pool))

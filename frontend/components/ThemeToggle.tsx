@@ -21,7 +21,7 @@ export default function ThemeToggle() {
   }
 
   return (
-    <button onClick={toggle} aria-label="Сменить тему" className="flex size-10 items-center justify-center rounded-full border border-line">
+    <button onClick={toggle} aria-label="Сменить тему" className="flex size-10 items-center justify-center rounded-full">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
         {theme === "dark" ? (
           // sun: offered while dark
