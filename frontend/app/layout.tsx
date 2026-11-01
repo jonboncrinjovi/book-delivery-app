@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { PT_Serif, Inter } from "next/font/google";
+import { PT_Serif, Inter, Caveat } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
@@ -10,6 +10,7 @@ import BottomNav from "@/components/BottomNav";
 
 const serif = PT_Serif({ weight: ["400", "700"], subsets: ["latin", "cyrillic"], variable: "--font-pt-serif" });
 const sans = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter" });
+const hand = Caveat({ subsets: ["latin", "cyrillic"], variable: "--font-caveat" }); // handwriting, for notes
 
 export const metadata: Metadata = {
   title: "Книжки и винишко",
@@ -20,7 +21,7 @@ const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(!t){
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ru" className={`${serif.variable} ${sans.variable}`} suppressHydrationWarning>
+    <html lang="ru" className={`${serif.variable} ${sans.variable} ${hand.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

@@ -45,6 +45,7 @@
   --color-line: var(--line);
   --font-serif: var(--font-pt-serif);
   --font-sans: var(--font-inter);
+  --font-hand: var(--font-caveat);
 }
 
 body {
