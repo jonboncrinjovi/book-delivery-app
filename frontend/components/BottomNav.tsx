@@ -20,7 +20,7 @@ const dot = (cx: number, cy: number, r: number) =>
 const left = [
   { href: "/", label: "Главная", paths: ["M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"] },
   // the book: the customer's deliveries (and profile, for now)
-  { href: "/account", label: "Мои доставки", paths: ["M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z", "M4 21V5", "M8 7h7"] },
+  { href: "/shelf", label: "Мои книги", paths: ["M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z", "M4 21V5", "M8 7h7"] },
 ];
 const right = [
   // a speech bubble holding a small bunch of grapes

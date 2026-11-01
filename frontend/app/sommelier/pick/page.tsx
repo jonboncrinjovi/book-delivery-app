@@ -107,7 +107,7 @@ export default function PickPage() {
   // ♥ or swipe right: onto the shelf, as a parcel if it wasn't opened
   function keep() {
     if (!card) return;
-    addToShelf({ id: card.id, name: revealed?.name, hidden: !revealed });
+    addToShelf({ id: card.id, name: revealed?.name, cover: revealed?.cover ?? undefined, price_cents: card.price_cents, hidden: !revealed });
     setSaved(true);
   }
 

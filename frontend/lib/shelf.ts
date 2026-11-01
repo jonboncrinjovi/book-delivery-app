@@ -1,12 +1,14 @@
-// The reader's shelf: books they've kept with ♥. Stored in the browser for now;
-// step 3 moves it to the server for logged-in users, so it follows them between devices.
+// The shelf in the browser. For logged-in readers every change is also sent to the server
+// (ignored if they're a guest); the shelf page moves leftover browser items to the server after login.
 import { useSyncExternalStore } from "react";
 
 export type ShelfItem = {
   id: number;
-  name?: string;    // unknown while it's still a blind parcel
-  hidden: boolean;  // kept without opening: shown as a parcel
-  at: string;       // when it was put on the shelf
+  name?: string;        // unknown while it's a parcel
+  cover?: string;
+  price_cents?: number;
+  hidden: boolean;
+  at: string;
 };
 
 const KEY = "kiv-shelf";
@@ -14,7 +16,7 @@ const EMPTY: ShelfItem[] = [];
 let cache: ShelfItem[] | null = null;
 const listeners = new Set<() => void>();
 
-function read(): ShelfItem[] {
+export function readShelf(): ShelfItem[] {
   if (cache) return cache;
   try {
     cache = JSON.parse(localStorage.getItem(KEY) ?? "[]");
@@ -40,14 +42,25 @@ function subscribe(listener: () => void) {
 }
 
 export function useShelf(): ShelfItem[] {
-  return useSyncExternalStore(subscribe, read, () => EMPTY);
+  return useSyncExternalStore(subscribe, readShelf, () => EMPTY);
 }
 
-// putting a book back on the shelf replaces its old entry, e.g. once it's been opened
 export function addToShelf(item: Omit<ShelfItem, "at">) {
-  write([{ ...item, at: new Date().toISOString() }, ...read().filter((i) => i.id !== item.id)]);
+  write([{ ...item, at: new Date().toISOString() }, ...readShelf().filter((i) => i.id !== item.id)]);
+  // fire and forget: for guests the server answers 401 and nothing happens
+  fetch("/api/me/shelf", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: item.id, hidden: item.hidden }),
+  }).catch(() => {});
 }
 
 export function removeFromShelf(id: number) {
-  write(read().filter((i) => i.id !== id));
+  write(readShelf().filter((i) => i.id !== id));
+  fetch(`/api/me/shelf/${id}`, { method: "DELETE" }).catch(() => {});
+}
+
+// after moving everything to the server
+export function clearShelf() {
+  write([]);
 }

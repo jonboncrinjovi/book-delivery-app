@@ -74,6 +74,9 @@ func main() {
 	mux.HandleFunc("DELETE /api/me/reads/{id}", requireUser(pool, deleteRead(pool)))
 	mux.HandleFunc("GET /api/me/reviewable", requireUser(pool, reviewableBooks(pool)))
 	mux.HandleFunc("GET /api/me/reviewable-orders", requireUser(pool, reviewableOrders(pool)))
+	mux.HandleFunc("GET /api/me/shelf", requireUser(pool, getShelf(pool)))
+	mux.HandleFunc("POST /api/me/shelf", requireUser(pool, putShelf(pool)))
+	mux.HandleFunc("DELETE /api/me/shelf/{id}", requireUser(pool, deleteShelf(pool)))
 
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
