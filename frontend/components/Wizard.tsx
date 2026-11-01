@@ -29,7 +29,7 @@ export default function Wizard({ bookId }: { bookId: number }) {
 
   function next() {
     if (i + 1 < steps.length) setI(i + 1);
-    else router.push("/cart"); // step 5 will continue to packaging, flowers and card
+    else router.push("/sommelier/wrap"); // on to packaging, then flowers and card
   }
 
   // key: a new step starts with a fresh "already suggested" list
