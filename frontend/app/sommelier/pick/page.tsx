@@ -55,7 +55,7 @@ export default function SommelierPage() {
   useEffect(() => {
     fetch("/api/tags")
       .then((r) => r.json())
-      .then((list: Tag[]) => { setAnchors(list); const a = list.find((x) => x.id === Number(new URLSearchParams(window.location.search).get("anchor"))); if (a) setAnchor(a); })
+      .then((list: Tag[]) => { setAnchors(list); const a = list.find((x) => x.id === Number(new URLSearchParams(window.location.search).get("anchor"))); if (a) setAnchor(a); const ts = new URLSearchParams(window.location.search).get("tags"); if (ts) setChosen(ts.split(",").map(Number)); })
       .catch(() => setMessage("Не удалось загрузить жанры"));
   }, []);
 
