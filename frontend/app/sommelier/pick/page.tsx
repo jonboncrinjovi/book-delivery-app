@@ -1,102 +1,123 @@
-"use client"; // the whole page is interactive: taps, swipes, state
+"use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { addItem } from "@/lib/cart";
+import { addToShelf } from "@/lib/shelf";
 
-// shapes of the API's answers (see sommelier.go)
-type Tag = { id: number; name: string; children?: Tag[] };
-type Masked = {
-  id: number; price_cents: number; cover_blur: string | null;
-  hints: string[]; tags: string[]; quotes: string[];
-};
-type Revealed = {
-  id: number; name: string; author: string | null; cover: string | null;
-  hook: string; description: string; price_cents: number;
-};
-type StormWord = { key: number; tag: Tag; size: number; x: number; y: number; rot: number; delay: number };
-
-// lets the page's buttons throw the card too, not only swipes
+type Magi = { text: string; author: string; grapes: number; plaque: boolean; quote: boolean };
+type Masked = { id: number; price_cents: number; cover_blur: string | null; hints: string[]; tags: string[]; magi: Magi[] };
+type Revealed = { id: number; name: string; author: string | null; cover: string | null; hook: string; description: string; price_cents: number };
 type SwipeControl = { fling: (dir: 1 | -1) => void };
 
 const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
 
-// 140 copies of the subtags, scattered at random sizes, positions and angles.
-// Called from a click, never during render: random values in render would differ
-// between server and browser and break the page.
-function makeStorm(subtags: Tag[]): StormWord[] {
-  return Array.from({ length: 140 }, (_, i) => ({
-    key: i,
-    tag: subtags[i % subtags.length],
-    size: 14 + Math.random() * 46,   // 14–60 px
-    x: Math.random() * 88,           // % from the left
-    y: Math.random() * 90,           // % from the top
-    rot: (Math.random() - 0.5) * 40, // −20° to +20°
-    delay: Math.random() * 0.8,      // staggered arrival
-  }));
+// where the four notes are pinned (percent of the card): overlapping the cover, each at its own angle
+const NOTES: { style: CSSProperties; rot: number }[] = [
+  { style: { right: "-3%", top: "5%", width: "60%" }, rot: 6 },
+  { style: { left: "-5%", top: "26%", width: "60%" }, rot: -5 },
+  { style: { right: "-4%", top: "48%", width: "60%" }, rot: 4 },
+  { style: { left: "4%", top: "69%", width: "60%" }, rot: -3 },
+];
+
+// five small berries; filled ones show the average rating
+function Grapes({ value }: { value: number }) {
+  const full = Math.round(value);
+  return (
+    <span className="flex gap-0.5" aria-label={`${full} из 5`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span key={n} className={`size-2.5 rounded-full border border-[#6b1f2b] ${n <= full ? "bg-[#6b1f2b]" : ""}`} />
+      ))}
+    </span>
+  );
 }
 
-export default function SommelierPage() {
-  const router = useRouter();
-  const swipe = useRef<SwipeControl | null>(null); // handle to the card, so buttons can throw it
+// one pinned note: kraft paper, black ink, a red pin at the top
+function Note({ m, style, rot, delay }: { m: Magi; style: CSSProperties; rot: number; delay: number }) {
+  return (
+    <div className="absolute z-10 rounded-sm border border-black/20 bg-[#f4ead6] p-2 text-black shadow-md motion-safe:animate-swoop"
+      style={{ ...style, rotate: `${rot}deg`, animationDelay: `${delay}s` }}>
+      <span className="absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 rounded-full bg-[#8c2f39] shadow" />
+      <div className="mb-1 flex items-center gap-1.5">
+        {m.plaque && <span className="size-3.5 rounded-full bg-[#e3b341] ring-1 ring-[#a37a1f]" title="Золотая лоза" />}
+        {m.quote
+          ? <span className="font-sans text-[10px] uppercase tracking-wide opacity-60">Цитата</span>
+          : <Grapes value={m.grapes} />}
+      </div>
+      <p className="line-clamp-4 text-[12px] font-semibold leading-snug">{m.quote ? `«${m.text}»` : m.text}</p>
+      {!m.quote && <p className="mt-1 text-right font-sans text-[10px] opacity-60">— {m.author}</p>}
+    </div>
+  );
+}
 
-  // useState: values that, when changed, redraw the page
-  const [anchors, setAnchors] = useState<Tag[]>([]);
-  const [anchor, setAnchor] = useState<Tag | null>(null); // chosen main genre
-  const [chosen, setChosen] = useState<number[]>([]);     // chosen subtag ids
-  const [storm, setStorm] = useState<StormWord[] | null>(null);
+const icon = (paths: string[]) => (
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {paths.map((d) => <path key={d} d={d} />)}
+  </svg>
+);
+const refreshIcon = icon(["M20 11a8 8 0 0 0-14.9-3.9", "M4 4v4h4", "M4 13a8 8 0 0 0 14.9 3.9", "M20 20v-4h-4"]);
+const heartIcon = icon(["M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z", "M12 9v8", "M9 10l3 1 3-1"]);
+
+export default function PickPage() {
+  const router = useRouter();
+  const swipe = useRef<SwipeControl | null>(null);
+  const tagIds = useRef<number[]>([]); // the tags chosen on the previous screen, read once from the address
   const [card, setCard] = useState<Masked | null>(null);
   const [revealed, setRevealed] = useState<Revealed | null>(null);
-  const [seen, setSeen] = useState<number[]>([]);         // books already shown this round, never repeated
+  const [seen, setSeen] = useState<number[]>([]);
   const [message, setMessage] = useState("");
+  const [saved, setSaved] = useState(false); // ♥ pressed: offer "ещё" or "оформить"
 
-  // useEffect with []: run once after the page appears; load the genres
-  useEffect(() => {
-    fetch("/api/tags")
-      .then((r) => r.json())
-      .then((list: Tag[]) => { setAnchors(list); const a = list.find((x) => x.id === Number(new URLSearchParams(window.location.search).get("anchor"))); if (a) setAnchor(a); const ts = new URLSearchParams(window.location.search).get("tags"); if (ts) setChosen(ts.split(",").map(Number)); })
-      .catch(() => setMessage("Не удалось загрузить жанры"));
-  }, []);
-
-  function chooseAnchor(t: Tag | null) {
-    // a new genre starts a fresh round
-    setAnchor(t);
-    setChosen([]);
-    setSeen([]);
-    setCard(null);
+  async function pick(exclude: number[]) {
     setRevealed(null);
-    setMessage("");
-  }
-
-  function toggleTag(id: number) {
-    setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
-  }
-
-  async function pick(exclude: number[] = seen) {
-    const tags = anchor ? [anchor.id, ...chosen] : [];
+    setSaved(false);
     try {
-      const res = await fetch(`/api/sommelier/pick?tags=${tags.join(",")}&exclude=${exclude.join(",")}`);
+      const res = await fetch(`/api/sommelier/pick?tags=${tagIds.current.join(",")}&exclude=${exclude.join(",")}`);
       if (res.status === 404) {
         setCard(null);
-        setMessage("Сомелье перебрал всё по этим тегам. Убери пару тегов или выбери другой жанр.");
+        setMessage("Сомелье перебрал всё по этим тегам.");
         return;
       }
       if (!res.ok) throw new Error();
       setCard(await res.json());
-      setRevealed(null);
       setMessage("");
     } catch {
-      setMessage("Что-то пошло не так, попробуй ещё раз");
+      setMessage("Что-то пошло не так, попробуйте ещё раз");
     }
   }
 
-  // runs after the card has flown off to the left
-  function discard() {
+  // «Задать» was already pressed on the tags screen: start picking right away
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    tagIds.current = [p.get("anchor"), ...(p.get("tags")?.split(",") ?? [])].filter(Boolean).map(Number);
+    pick([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ↻ or swipe left: the next book
+  function next() {
     if (!card) return;
-    const next = [...seen, card.id];
-    setSeen(next);
-    pick(next); // straight to the next book
+    const ex = [...seen, card.id];
+    setSeen(ex);
+    pick(ex);
+  }
+
+  // ♥ or swipe right: onto the shelf, as a parcel if it wasn't opened
+  function keep() {
+    if (!card) return;
+    addToShelf({ id: card.id, name: revealed?.name, hidden: !revealed });
+    setSaved(true);
+  }
+
+  function orderNow() {
+    if (!card) return;
+    addItem({
+      id: card.id, category: "book", name: revealed ? revealed.name : "Книга-сюрприз",
+      price_cents: card.price_cents, slots: 2, hidden: !revealed,
+    });
+    router.push(`/sommelier/next?book=${card.id}`); // on to wine and snack
   }
 
   async function reveal() {
@@ -113,189 +134,130 @@ export default function SommelierPage() {
       body: JSON.stringify({ product_id: card.id }),
     });
     if (res.status === 401) {
-      setMessage("Войди в аккаунт, и сомелье запомнит прочитанное");
+      setMessage("Войдите в профиле, и сомелье запомнит прочитанное");
       return;
     }
-    swipe.current?.fling(-1); // read already: throw it away
+    swipe.current?.fling(-1);
   }
 
-  // runs after the card has flown off to the right
-  function accept() {
-    if (!card) return;
-    addItem({
-      id: card.id,
-      category: "book",
-      name: revealed ? revealed.name : "Книга-сюрприз",
-      price_cents: card.price_cents,
-      slots: 2, // a typical book; the server checks the real number at checkout
-      hidden: !revealed,
-    });
-    router.push(`/sommelier/next?book=${card.id}`); // on to "для себя или в подарок?"
-  }
-
-  const subtags = anchor?.children ?? [];
-  const image = revealed ? revealed.cover : card?.cover_blur;
+  const cover = revealed ? revealed.cover : card?.cover_blur;
 
   return (
-    <div className="pt-4">
-      <h1 className="text-3xl font-bold">Книжный сомелье</h1>
-      <p className="mt-1 font-sans text-sm text-muted">Выбери жанр и настроение, остальное за нами.</p>
-
-      {/* tag chips: first the genres; after choosing one, the genre plus its subtags and "+" */}
-      <div className="mt-5 flex flex-wrap gap-2 font-sans text-sm">
-        {!anchor && anchors.map((a) => (
-          <Chip key={a.id} onClick={() => chooseAnchor(a)}>{a.name}</Chip>
-        ))}
-        {anchor && (
-          <>
-            <Chip active onClick={() => chooseAnchor(null)}>{anchor.name} ✕</Chip>
-            {subtags.slice(0, 3).map((t) => (
-              <Chip key={t.id} active={chosen.includes(t.id)} onClick={() => toggleTag(t.id)}>{t.name}</Chip>
-            ))}
-            {subtags.length > 0 && <Chip onClick={() => setStorm(makeStorm(subtags))}>+</Chip>}
-          </>
+    <div className="flex h-full flex-col">
+      {/* the card: as tall as the space allows, at book proportions */}
+      <div className="relative min-h-0 flex-1">
+        {card ? (
+          <SwipeCard key={card.id} control={swipe} onLeft={next} onRight={keep} locked={saved}>
+            <div className="relative mx-auto aspect-[2/3] h-full max-w-full">
+              {/* kraft frame with a double ink border */}
+              <div className="absolute inset-0 rounded-2xl bg-[#c9a77a] p-[6%] shadow-lg">
+                <div className="h-full w-full border-[3px] border-double border-black/50 p-[5%]">
+                  {cover
+                    ? <img src={cover} alt="" draggable={false} className="h-full w-full object-cover" />
+                    : <div className="h-full w-full bg-black/20" />}
+                </div>
+              </div>
+              {!revealed && card.magi.map((m, i) => (
+                <Note key={i} m={m} style={NOTES[i].style} rot={NOTES[i].rot} delay={0.2 + i * 0.25} />
+              ))}
+            </div>
+          </SwipeCard>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+            <p className="text-lg">{message || "Сомелье думает…"}</p>
+            {message && (
+              <Link href="/sommelier/tags" className="rounded-full bg-wine px-6 py-3 font-sans text-paper-2">Изменить теги</Link>
+            )}
+          </div>
         )}
       </div>
 
-      {/* the wax seal, shown while there's no card on screen */}
-      {!card && (
-        <div className="mt-10 flex justify-center">
-          <button onClick={() => pick()}
-            className="flex size-44 items-center justify-center rounded-full bg-wine text-2xl font-bold text-paper-2 shadow-[0_8px_0_rgba(0,0,0,.15)] ring-8 ring-wine/30 transition active:scale-95">
-            Подобрать
-          </button>
-        </div>
-      )}
-
-      {message && <p className="mt-6 text-center font-sans text-sm text-muted">{message}</p>}
-
+      {/* the paper strip: seal on its edge, ↻ left, ♥ right */}
       {card && (
-        <div className="mt-6">
-          {/* key={card.id}: every new book gets a brand-new card, starting centred */}
-          <SwipeCard key={card.id} control={swipe} onLeft={discard} onRight={accept}>
-            <div className="overflow-hidden rounded-3xl border border-line bg-paper-2">
-              {image ? (
-                // draggable={false}: stops the browser's own image dragging from fighting the swipe
-                <img src={image} alt="" draggable={false} className="aspect-[2/3] w-full object-cover" />
-              ) : (
-                <div className="aspect-[2/3] w-full bg-line" />
-              )}
-              <div className="p-4">
-                {revealed ? (
-                  <>
-                    <p className="text-xl font-bold">{revealed.name}</p>
-                    <p className="font-sans text-sm text-muted">{revealed.author}</p>
-                    {revealed.hook && <p className="mt-2 italic">«{revealed.hook}»</p>}
-                  </>
-                ) : (
-                  <div className="flex flex-wrap gap-2 font-sans text-xs">
-                    {card.hints.map((h) => (
-                      <span key={h} className="rounded-full bg-paper px-3 py-1">{h}</span>
-                    ))}
-                  </div>
-                )}
-                <p className="mt-3 font-sans text-sm">{rub(card.price_cents)}</p>
+        <div className="relative mt-4 shrink-0 rounded-2xl bg-[#efe6d4] px-6 pb-3 pt-8 text-black shadow-md">
+          {!revealed && !saved && (
+            <button onClick={reveal}
+              className="absolute left-1/2 top-0 flex size-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#7a1f2b] text-lg text-[#f4ead6] shadow-[0_4px_0_rgba(0,0,0,.25)] ring-4 ring-[#7a1f2b]/40 transition active:scale-95">
+              Открыть
+            </button>
+          )}
+
+          {saved ? (
+            <div className="space-y-2 text-center">
+              <p className="font-semibold">{revealed ? "На полке." : "На полке, пока что в обёртке."}</p>
+              <div className="flex gap-2 font-sans text-sm">
+                <button onClick={next} className="flex-1 rounded-full border border-[#7a1f2b] px-3 py-2 text-[#7a1f2b]">Подобрать ещё</button>
+                <button onClick={orderNow} className="flex-1 rounded-full bg-[#7a1f2b] px-3 py-2 text-[#f4ead6]">Оформить сейчас</button>
               </div>
             </div>
-          </SwipeCard>
+          ) : (
+            <div className="flex items-center justify-between text-[#7a1f2b]">
+              <button onClick={() => swipe.current?.fling(-1)} aria-label="Другую книгу">{refreshIcon}</button>
+              <div className="min-w-0 px-2 text-center">
+                {revealed ? (
+                  <>
+                    <p className="truncate font-semibold text-black">{revealed.name}</p>
+                    <p className="truncate font-sans text-xs text-black/60">{revealed.author}</p>
+                  </>
+                ) : (
+                  <p className="font-sans text-sm text-black/60">{rub(card.price_cents)}</p>
+                )}
+              </div>
+              <button onClick={() => swipe.current?.fling(1)} aria-label="На полку">{heartIcon}</button>
+            </div>
+          )}
 
-          {/* the three magi: quotes for now, real reviews once they exist */}
-          <div className="mt-4 space-y-2">
-            {card.quotes.map((q, i) => (
-              <blockquote key={`${card.id}-${i}`} style={{ animationDelay: `${0.2 + i * 0.25}s` }}
-                className="rounded-2xl border border-line bg-paper-2 p-3 italic motion-safe:animate-swoop">
-                «{q}»
-              </blockquote>
-            ))}
-          </div>
-
-          <div className="mt-5 flex items-center justify-between font-sans">
-            <button onClick={() => swipe.current?.fling(-1)} aria-label="Пропустить"
-              className="size-14 rounded-full border border-line text-xl">✕</button>
-            {!revealed && (
-              <button onClick={reveal} className="rounded-full border border-wine px-6 py-3 text-wine">Раскрыть</button>
-            )}
-            <button onClick={() => swipe.current?.fling(1)} aria-label="В корзину"
-              className="size-14 rounded-full bg-wine text-xl text-paper-2">♥</button>
-          </div>
-
-          {/* outside the card on purpose: the card captures the pointer, so buttons inside it never get clicks */}
-          {revealed && (
-            <button onClick={markRead} className="mt-4 block w-full text-center font-sans text-sm text-wine underline">
+          {revealed && !saved && (
+            <button onClick={markRead} className="mt-1 block w-full text-center font-sans text-xs text-[#7a1f2b] underline">
               Уже читал, не предлагать
             </button>
           )}
-          <p className="mt-3 text-center font-sans text-xs text-muted">Свайп вправо: в корзину. Влево: дальше.</p>
-        </div>
-      )}
-
-      {/* the word storm: covers everything, including the bottom bar */}
-      {storm && (
-        <div className="fixed inset-0 z-[60] overflow-hidden bg-paper">
-          {storm.map((w) => (
-            <button key={w.key} onClick={() => toggleTag(w.tag.id)}
-              className={`absolute whitespace-nowrap leading-none motion-safe:animate-storm ${chosen.includes(w.tag.id) ? "text-wine underline" : "text-ink/80"}`}
-              // "rotate" is its own CSS property here, so the storm animation's scale doesn't wipe it out
-              style={{ left: `${w.x}%`, top: `${w.y}%`, fontSize: `${w.size}px`, rotate: `${w.rot}deg`, animationDelay: `${w.delay}s` }}>
-              {w.tag.name}
-            </button>
-          ))}
-          <button onClick={() => setStorm(null)}
-            className="fixed bottom-8 left-1/2 z-[61] -translate-x-1/2 rounded-full bg-wine px-8 py-3 font-sans text-paper-2 shadow-lg">
-            Готово
-          </button>
         </div>
       )}
     </div>
   );
 }
 
-function Chip({ active, onClick, children }: { active?: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button onClick={onClick}
-      className={`rounded-full border px-4 py-1.5 ${active ? "border-wine bg-wine text-paper-2" : "border-line bg-paper-2"}`}>
-      {children}
-    </button>
-  );
-}
-
-// SwipeCard follows the finger; a long enough drag or a fast enough flick throws it off screen,
-// and only once it's gone does the action run
-function SwipeCard({ onLeft, onRight, control, children }: {
+// follows the finger; a long drag or a fast flick throws the card off screen, then the action runs.
+// locked: after ♥ the card stays put until the reader picks "ещё" or "оформить"
+function SwipeCard({ onLeft, onRight, control, locked, children }: {
   onLeft: () => void;
   onRight: () => void;
   control?: { current: SwipeControl | null };
+  locked?: boolean;
   children: ReactNode;
 }) {
-  const [startX, setStartX] = useState<number | null>(null);                    // drag start; null = not dragging
-  const [dx, setDx] = useState(0);                                               // current drag distance
-  const [flying, setFlying] = useState<{ x: number; ms: number } | null>(null); // set once the card is thrown
-  // the latest position, time and speed (pixels per millisecond), for detecting a flick.
-  // useRef: remembered between renders, but changing it doesn't redraw anything
+  const [startX, setStartX] = useState<number | null>(null);
+  const [dx, setDx] = useState(0);
+  const [flying, setFlying] = useState<{ x: number; ms: number } | null>(null);
   const last = useRef({ x: 0, t: 0, v: 0 });
 
   function fling(dir: 1 | -1, force = 1) {
-    if (flying) return;
-    // more force → a shorter, sharper flight
+    if (flying || locked) return;
     const ms = Math.max(160, Math.min(420, 420 / force));
-    setFlying({ x: dir * window.innerWidth * 1.5, ms }); // well past the screen edge
-    setTimeout(() => (dir === 1 ? onRight() : onLeft()), ms); // act once it has left
+    if (dir === 1) {
+      // ♥ keeps the book: a short hop to the right and back, rather than flying away
+      setDx(60);
+      setTimeout(() => setDx(0), 180);
+      onRight();
+      return;
+    }
+    setFlying({ x: -window.innerWidth * 1.5, ms });
+    setTimeout(onLeft, ms);
   }
 
-  // give the parent a way to call fling (for the ✕ and ♥ buttons)
   useEffect(() => {
     if (control) control.current = { fling };
   });
 
   function end(timeStamp: number) {
     if (startX === null) return;
-    // a finger that stopped moving before letting go isn't flicking
     const v = timeStamp - last.current.t > 100 ? 0 : last.current.v;
     const force = Math.max(1, Math.abs(v) * 1.5);
     const flick = Math.abs(v) > 0.6;
     if (dx > 110 || (flick && v > 0)) fling(1, force);
     else if (dx < -110 || (flick && v < 0)) fling(-1, force);
-    else setDx(0); // not enough: spring back
+    else setDx(0);
     setStartX(null);
   }
 
@@ -303,10 +265,10 @@ function SwipeCard({ onLeft, onRight, control, children }: {
   return (
     <div
       onPointerDown={(e) => {
-        if (flying) return;
+        if (flying || locked) return;
         setStartX(e.clientX);
         last.current = { x: e.clientX, t: e.timeStamp, v: 0 };
-        e.currentTarget.setPointerCapture(e.pointerId); // keep receiving moves even if the finger leaves the card
+        e.currentTarget.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
         if (startX === null) return;
@@ -321,14 +283,9 @@ function SwipeCard({ onLeft, onRight, control, children }: {
       }}
       style={{
         transform: `translateX(${x}px) rotate(${x / 18}deg)`,
-        // flight: accelerating curve, like something thrown; drag: none (follows the finger exactly);
-        // spring-back: a short ease
-        transition: flying
-          ? `transform ${flying.ms}ms cubic-bezier(.4,0,1,1)`
-          : startX === null ? "transform 0.25s" : "none",
+        transition: flying ? `transform ${flying.ms}ms cubic-bezier(.4,0,1,1)` : startX === null ? "transform 0.25s" : "none",
       }}
-      // touch-pan-y: vertical scrolling stays with the browser, horizontal movement is ours
-      className="touch-pan-y select-none"
+      className="h-full touch-pan-y select-none"
     >
       {children}
     </div>

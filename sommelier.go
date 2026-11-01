@@ -23,7 +23,7 @@ type MaskedCard struct {
 	CoverBlur  *string  `json:"cover_blur"`
 	Hints      []string `json:"hints"`
 	Tags       []string `json:"tags"`
-	Quotes     []string `json:"quotes"` // the three magi: best reviews first, quotes fill the gaps
+	Magi       []Magi   `json:"magi"` // the pinned notes (magi.go)
 }
 
 type RevealedCard struct {
@@ -153,12 +153,12 @@ func pickBook(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		// the three magi (see reviews.go)
-		if c.Quotes, err = magiLines(ctx, pool, c.ID); err != nil {
+		if c.Magi, err = magiNotes(ctx, pool, c.ID); err != nil {
 			http.Error(w, "query failed", http.StatusInternalServerError)
 			return
 		}
 
-		for _, s := range []*[]string{&c.Hints, &c.Tags, &c.Quotes} {
+		for _, s := range []*[]string{&c.Hints, &c.Tags} {
 			if *s == nil {
 				*s = []string{}
 			}
