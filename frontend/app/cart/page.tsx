@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { clearCart, setQty, useCart } from "@/lib/cart";
+import { clearCart, setQty, useCart, type CartItem } from "@/lib/cart";
 
 type Quote = { subtotal_cents: number; delivery_fee_cents: number; total_cents: number; deliver_by: string; geocoded: boolean };
 type BagColor = { code: string; name: string };
@@ -12,6 +12,21 @@ type BoxSize = { code: string; name: string };
 const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
 const when = (iso: string) =>
   new Date(iso).toLocaleString("ru-RU", { weekday: "long", hour: "2-digit", minute: "2-digit" });
+
+// a blind book is always the "?" parcel; everything else gets its picture, or its first letter on kraft
+function Thumb({ item, src }: { item: CartItem; src?: string }) {
+  if (item.hidden) {
+    return <img src="/wrap/parcel.png" alt="" className="h-14 w-11 shrink-0 object-contain" />;
+  }
+  if (src) {
+    return <img src={src} alt="" className="h-14 w-11 shrink-0 rounded-sm object-cover shadow-sm" />;
+  }
+  return (
+    <div className="flex h-14 w-11 shrink-0 items-center justify-center rounded-sm bg-[#c9a77a] text-xl">
+      {item.name.charAt(0)}
+    </div>
+  );
+}
 
 export default function OrderPage() {
   const router = useRouter();
@@ -23,11 +38,19 @@ export default function OrderPage() {
   const [sending, setSending] = useState(false);
   const [colors, setColors] = useState<BagColor[]>([]);
   const [boxes, setBoxes] = useState<BoxSize[]>([]);
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch("/api/bag-colors").then((r) => r.json()).then(setColors).catch(() => {});
     fetch("/api/box-sizes").then((r) => r.json()).then(setBoxes).catch(() => {});
   }, []);
+
+  // pictures for everything except blind books, whose covers must stay a secret
+  const visibleIds = cart.items.filter((i) => !i.hidden).map((i) => i.id).join(",");
+  useEffect(() => {
+    if (!visibleIds) return;
+    fetch(`/api/products/thumbs?ids=${visibleIds}`).then((r) => r.json()).then(setThumbs).catch(() => {});
+  }, [visibleIds]);
 
   const gift = cart.gift?.gift ?? false;
 
@@ -110,62 +133,62 @@ export default function OrderPage() {
   const row = "flex items-center justify-between gap-2";
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl bg-[#f4ead6] text-black">
-      {/* the photo: book, wine, cheese (plain kraft until hero.jpg exists) */}
-      <div className="h-[26%] shrink-0 bg-[#c9a77a] bg-cover bg-center" style={{ backgroundImage: "url(/order/hero.jpg)" }} />
+    <div className="flex h-full flex-col gap-2 overflow-hidden rounded-xl bg-[#f4ead6] p-4 text-black">
+      <h1 className="shrink-0 text-3xl">Ваш заказ</h1>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 px-4 pb-4 pt-3">
-        {/* the lines; only this list scrolls, if it ever gets long */}
-        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto text-lg">
-          {cart.items.map((i) => (
-            <li key={i.id} className={row}>
-              <span className="min-w-0 truncate">{i.hidden ? "Книга-сюрприз" : i.name}{i.qty > 1 ? ` × ${i.qty}` : ""}</span>
-              <span className="flex shrink-0 items-center gap-3">
-                <span className="font-sans text-sm">{rub(i.price_cents * i.qty)}</span>
-                <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Убрать" className="font-sans opacity-50">×</button>
-              </span>
-            </li>
-          ))}
-        </ul>
+      {/* the lines with pictures; only this list scrolls, if it ever gets long */}
+      <ul className="min-h-0 flex-1 divide-y divide-black/10 overflow-y-auto">
+        {cart.items.map((i) => (
+          <li key={i.id} className="flex items-center gap-3 py-2">
+            <Thumb item={i} src={thumbs[String(i.id)]} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg leading-tight">{i.hidden ? "Книга-сюрприз" : i.name}</p>
+              <p className="font-sans text-sm opacity-70">
+                {rub(i.price_cents * i.qty)}{i.qty > 1 ? ` · ${i.qty} шт.` : ""}
+              </p>
+            </div>
+            <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Убрать" className="px-1 font-sans text-xl opacity-40">×</button>
+          </li>
+        ))}
+      </ul>
 
-        <Link href="/sommelier/wrap" className="shrink-0 rounded-md bg-[#7a1f2b] px-4 py-2 text-[#f4ead6]">
-          Упаковка: {packaging}
-        </Link>
+      <Link href="/sommelier/wrap" className="shrink-0 rounded-md bg-[#7a1f2b] px-4 py-2 text-[#f4ead6]">
+        Упаковка: {packaging}
+      </Link>
 
-        <Link href="/checkout" className="shrink-0 truncate rounded-md border border-black/30 px-3 py-2 font-sans text-sm">
-          {c ? `Адрес: ${c.address}` : "Указать адрес и телефон →"}
-        </Link>
+      <Link href="/checkout" className="shrink-0 truncate rounded-md border border-black/30 px-3 py-2 font-sans text-sm">
+        {c ? `Адрес: ${c.address}` : "Указать адрес и телефон →"}
+      </Link>
 
-        <div className="grid shrink-0 grid-cols-2 gap-2 font-sans text-sm">
-          <button onClick={() => setExpress(false)}
-            className={`rounded-md border px-3 py-2 ${!express ? "border-[#7a1f2b] bg-[#7a1f2b] text-[#f4ead6]" : "border-black/30"}`}>
-            Обычная{!express && quote ? `: ${quote.delivery_fee_cents === 0 ? "бесплатно" : rub(quote.delivery_fee_cents)}` : ""}
-          </button>
-          <button onClick={() => setExpress(true)}
-            className={`rounded-md border px-3 py-2 ${express ? "border-[#7a1f2b] bg-[#7a1f2b] text-[#f4ead6]" : "border-black/30"}`}>
-            Экспресс 2 ч{express && quote ? `: ${rub(quote.delivery_fee_cents)}` : ""}
-          </button>
-        </div>
-
-        {quote && (
-          <div className="shrink-0">
-            <p className={`${row} text-xl`}><span>Итог</span><span className="font-bold">{rub(quote.total_cents)}</span></p>
-            <p className="font-sans text-xs opacity-60">
-              Привезём до: {when(quote.deliver_by)}
-              {!quote.geocoded && " · адрес уточним по телефону"}
-            </p>
-          </div>
-        )}
-        {error && <p className="shrink-0 font-sans text-sm text-[#7a1f2b]">{error}</p>}
-
-        <button onClick={pay} disabled={!c || !quote || sending}
-          className="shrink-0 rounded-md bg-[#7a1f2b] px-6 py-3 font-sans uppercase tracking-wide text-[#f4ead6] disabled:opacity-40">
-          {sending ? "Оформляем…" : "Оплатить"}
+      <div className="grid shrink-0 grid-cols-2 gap-2 font-sans text-sm">
+        <button onClick={() => setExpress(false)}
+          className={`rounded-md border px-3 py-2 ${!express ? "border-[#7a1f2b] bg-[#7a1f2b] text-[#f4ead6]" : "border-black/30"}`}>
+          Обычная{!express && quote ? `: ${quote.delivery_fee_cents === 0 ? "бесплатно" : rub(quote.delivery_fee_cents)}` : ""}
         </button>
-        <p className="shrink-0 text-center font-sans text-[10px] opacity-60">
-          Онлайн-оплата скоро появится. Пока мы позвоним, чтобы подтвердить заказ.
-        </p>
+        <button onClick={() => setExpress(true)}
+          className={`rounded-md border px-3 py-2 ${express ? "border-[#7a1f2b] bg-[#7a1f2b] text-[#f4ead6]" : "border-black/30"}`}>
+          Экспресс 2 ч{express && quote ? `: ${rub(quote.delivery_fee_cents)}` : ""}
+        </button>
       </div>
+
+      {quote && (
+        <div className="shrink-0">
+          <p className={`${row} text-xl`}><span>Итог</span><span className="font-bold">{rub(quote.total_cents)}</span></p>
+          <p className="font-sans text-xs opacity-60">
+            Привезём до: {when(quote.deliver_by)}
+            {!quote.geocoded && " · адрес уточним по телефону"}
+          </p>
+        </div>
+      )}
+      {error && <p className="shrink-0 font-sans text-sm text-[#7a1f2b]">{error}</p>}
+
+      <button onClick={pay} disabled={!c || !quote || sending}
+        className="shrink-0 rounded-md bg-[#7a1f2b] px-6 py-3 font-sans uppercase tracking-wide text-[#f4ead6] disabled:opacity-40">
+        {sending ? "Оформляем…" : "Оплатить"}
+      </button>
+      <p className="shrink-0 text-center font-sans text-[10px] opacity-60">
+        Онлайн-оплата скоро появится. Пока мы позвоним, чтобы подтвердить заказ.
+      </p>
     </div>
   );
 }
