@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
-	_ "time/tzdata" // timezone data inside the binary; redundant with distroless, but harmless
+	_ "time/tzdata"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -29,14 +29,14 @@ func mustLoadLocation(name string) *time.Location {
 type OrderItemReq struct {
 	ProductID int64 `json:"product_id"`
 	Quantity  int   `json:"quantity"`
-	Hidden    bool  `json:"hidden"` // blind-date book: stays a surprise
+	Hidden    bool  `json:"hidden"`
 }
 
-// what the customer sends; note: no prices, no totals. The server decides those.
+// what the customer sends; no prices, no totals: the server decides those
 type OrderReq struct {
-	DryRun         bool           `json:"dry_run"`   // true = only calculate the price, save nothing
-	BoxSize        string         `json:"box_size"`  // empty = the paper bag
-	BagColor       *string        `json:"bag_color"` // nil = surprise: you choose when packing
+	DryRun         bool           `json:"dry_run"`
+	BoxSize        string         `json:"box_size"`
+	BagColor       *string        `json:"bag_color"`
 	Gift           bool           `json:"gift"`
 	Recipient      *string        `json:"recipient"`
 	Occasion       *string        `json:"occasion"`
@@ -48,20 +48,21 @@ type OrderReq struct {
 	RecipientName  string         `json:"recipient_name"`
 	RecipientPhone string         `json:"recipient_phone"`
 	Address        string         `json:"address"`
-	Lat            float64        `json:"lat"`
+	Lat            float64        `json:"lat"` // 0,0 = not given: the server looks the address up
 	Lon            float64        `json:"lon"`
 	DeliveryType   string         `json:"delivery_type"`
 	Items          []OrderItemReq `json:"items"`
 }
 
 type OrderResp struct {
-	ID               int64     `json:"id,omitempty"`    // empty for a dry run
-	Track            string    `json:"track,omitempty"` // secret part of the tracking link
+	ID               int64     `json:"id,omitempty"`
+	Track            string    `json:"track,omitempty"`
 	Status           string    `json:"status"`
 	SubtotalCents    int       `json:"subtotal_cents"`
 	DeliveryFeeCents int       `json:"delivery_fee_cents"`
 	TotalCents       int       `json:"total_cents"`
 	DeliverBy        time.Time `json:"deliver_by"`
+	Geocoded         bool      `json:"geocoded"` // false: address not found, delivery price to be confirmed
 }
 
 type settings struct {
@@ -72,8 +73,6 @@ type settings struct {
 	CutoffHour, UntilHour          int
 }
 
-// badRequest marks errors caused by the customer's input (answered with 400, message shown to them),
-// as opposed to server failures (answered with 500, details hidden)
 type badRequest struct{ msg string }
 
 func (e badRequest) Error() string { return e.msg }
@@ -91,15 +90,21 @@ func createOrder(pool *pgxpool.Pool) http.HandlerFunc {
 		case errors.As(err, &br):
 			http.Error(w, br.msg, http.StatusBadRequest)
 		case err != nil:
-			http.Error(w, "Не получилось оформить заказ, попробуй ещё раз", http.StatusInternalServerError)
+			http.Error(w, "Не получилось оформить заказ, попробуйте ещё раз", http.StatusInternalServerError)
 		case req.DryRun:
-			writeJSON(w, http.StatusOK, resp) // just the price
+			writeJSON(w, http.StatusOK, resp)
 		default:
-			// logged-in customer: attach the order to their account
 			if uid := userID(r.Context(), pool, r); uid != 0 {
 				pool.Exec(r.Context(), `UPDATE orders SET user_id = $1 WHERE id = $2`, uid, resp.ID)
+				// remember the phone for next time; the address only if it's their own, not a gift recipient's
+				if req.Gift {
+					pool.Exec(r.Context(), `UPDATE users SET phone = $1 WHERE id = $2`, req.CustomerPhone, uid)
+				} else {
+					pool.Exec(r.Context(), `UPDATE users SET phone = $1, address = $2 WHERE id = $3`,
+						req.CustomerPhone, req.Address, uid)
+				}
 			}
-			go notifyNewOrder(pool, resp.ID) // "go" = run in the background, don't wait for it
+			go notifyNewOrder(pool, resp.ID)
 			writeJSON(w, http.StatusCreated, resp)
 		}
 	}
@@ -111,7 +116,7 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	// 1. checks that need no database; contact details aren't needed for a price quote
 	if !req.DryRun && (req.CustomerName == "" || req.CustomerPhone == "" || req.RecipientName == "" ||
 		req.RecipientPhone == "" || strings.TrimSpace(req.Address) == "") {
-		return resp, badRequest{"Укажи имя, телефон и адрес"}
+		return resp, badRequest{"Укажите имя, телефон и адрес"}
 	}
 	if req.DeliveryType != "standard" && req.DeliveryType != "express" {
 		return resp, badRequest{"Неизвестный способ доставки"}
@@ -119,8 +124,6 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	if len(req.Items) == 0 {
 		return resp, badRequest{"Корзина пуста"}
 	}
-
-	// packaging: the bag is the default; a colour only makes sense for the bag
 	if req.BoxSize == "" {
 		req.BoxSize = "BAG"
 	}
@@ -131,7 +134,6 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		req.Recipient, req.Occasion = nil, nil
 	}
 
-	// merge duplicates: the same product listed twice becomes one line
 	qty := map[int64]int{}
 	hidden := map[int64]bool{}
 	for _, it := range req.Items {
@@ -141,23 +143,16 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		qty[it.ProductID] += it.Quantity
 		hidden[it.ProductID] = hidden[it.ProductID] || it.Hidden
 	}
-	// fixed lock order, so two simultaneous orders can't deadlock each other
 	ids := make([]int64, 0, len(qty))
 	for id := range qty {
 		ids = append(ids, id)
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 
-	// transaction: either every step below happens, or none of it does
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return resp, err
-	}
-	defer tx.Rollback(ctx) // undoes everything on any early return, and for dry runs; harmless after Commit
-
-	// 2. settings
+	// 2. settings (read before the transaction: the address lookup below may take a second,
+	//    and we don't want to hold locks on products meanwhile)
 	var s settings
-	err = tx.QueryRow(ctx, `
+	err := pool.QueryRow(ctx, `
 		SELECT delivery_fee_cents, express_fee_cents, outside_km_fee_cents, free_delivery_from_cents,
 		       city_center_lat, city_center_lon, city_radius_km, max_radius_km,
 		       order_cutoff_hour, deliver_until_hour
@@ -169,13 +164,29 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		return resp, err
 	}
 
-	// 3. delivery area
+	// 3. where to: coordinates from the address when none were sent;
+	//    if it can't be found, price it as in-city and flag it for you to confirm
+	resp.Geocoded = true
+	if req.Lat == 0 && req.Lon == 0 {
+		if lat, lon, ok := geocode(ctx, req.Address); ok {
+			req.Lat, req.Lon = lat, lon
+		} else {
+			req.Lat, req.Lon = s.CenterLat, s.CenterLon
+			resp.Geocoded = false
+		}
+	}
 	dist := haversineKm(s.CenterLat, s.CenterLon, req.Lat, req.Lon)
 	if dist > s.MaxKm {
 		return resp, badRequest{"Сюда мы пока не доставляем"}
 	}
 
-	// 4. packaging: bag or box
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return resp, err
+	}
+	defer tx.Rollback(ctx)
+
+	// 4. packaging
 	var capacity *int
 	var boxPrice int
 	err = tx.QueryRow(ctx, `SELECT capacity_slots, price_cents FROM box_sizes WHERE code = $1`,
@@ -187,7 +198,6 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		return resp, err
 	}
 
-	// every code the customer sent must exist in its lookup table
 	for _, c := range []struct {
 		table string
 		code  *string
@@ -201,14 +211,13 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		}
 	}
 
-	// 5. products: lock each row, check it, price it
+	// 5. products
 	itemsTotal, slots := 0, 0
 	prices := map[int64]int{}
 	for _, id := range ids {
 		var name string
 		var price, stock, sl int
 		var active bool
-		// FOR UPDATE locks the row until the transaction ends: two buyers can't both take the last copy
 		err := tx.QueryRow(ctx,
 			`SELECT name, price_cents, stock, slots, active FROM products WHERE id = $1 FOR UPDATE`,
 			id).Scan(&name, &price, &stock, &sl, &active)
@@ -220,7 +229,7 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		}
 		if stock < qty[id] {
 			if hidden[id] {
-				name = "книги-сюрприза" // don't spoil the blind date in an error message
+				name = "книги-сюрприза"
 			}
 			return resp, badRequest{fmt.Sprintf("Осталось только %d шт. %s", stock, name)}
 		}
@@ -232,7 +241,7 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		return resp, badRequest{fmt.Sprintf("Не помещается: нужно %d мест, а в упаковке %d", slots, *capacity)}
 	}
 
-	// 6. designs: must exist, be active, and be the right kind
+	// 6. designs
 	designTotal := 0
 	for _, d := range []struct {
 		id   *int64
@@ -262,7 +271,7 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		fee = 0
 	}
 	if extra := dist - s.RadiusKm; extra > 0 {
-		fee += int(math.Ceil(extra)) * s.KmFee // every started kilometre counts
+		fee += int(math.Ceil(extra)) * s.KmFee
 	}
 
 	// 8. deadline
@@ -276,14 +285,14 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	case req.DeliveryType == "express":
 		return resp, badRequest{fmt.Sprintf("Экспресс-доставка доступна до %d:00", s.CutoffHour)}
 	case now.Before(cutoff):
-		deliverBy = until // today
+		deliverBy = until
 	default:
-		deliverBy = until.AddDate(0, 0, 1) // tomorrow
+		deliverBy = until.AddDate(0, 0, 1)
 	}
 
 	status := "awaiting_payment"
 	if capacity == nil {
-		status = "awaiting_quote" // custom box: you price it by hand before payment
+		status = "awaiting_quote"
 	}
 
 	resp.Status = status
@@ -292,25 +301,24 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	resp.TotalCents = subtotal + fee
 	resp.DeliverBy = deliverBy
 
-	// a price quote ends here: nothing is written, and the deferred Rollback releases the locks
 	if req.DryRun {
 		return resp, nil
 	}
 
-	// 9. write the order, its items, and reduce stock
+	// 9. write
 	err = tx.QueryRow(ctx, `
 		INSERT INTO orders (status, box_size, box_design_id, card_design_id, card_text,
 			customer_name, customer_phone, recipient_name, recipient_phone, address, lat, lon,
 			delivery_type, deliver_by, subtotal_cents, delivery_fee_cents, total_cents,
-			bag_color, gift, recipient, occasion)
+			bag_color, gift, recipient, occasion, geocoded)
 		VALUES ($1::order_status, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-			$13::delivery_type, $14, $15, $16, $17, $18, $19, $20, $21)
+			$13::delivery_type, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 		RETURNING id, track_token`,
 		status, req.BoxSize, req.BoxDesignID, req.CardDesignID, req.CardText,
 		req.CustomerName, req.CustomerPhone, req.RecipientName, req.RecipientPhone,
 		req.Address, req.Lat, req.Lon, req.DeliveryType, deliverBy,
 		subtotal, fee, subtotal+fee,
-		req.BagColor, req.Gift, req.Recipient, req.Occasion).Scan(&resp.ID, &resp.Track)
+		req.BagColor, req.Gift, req.Recipient, req.Occasion, resp.Geocoded).Scan(&resp.ID, &resp.Track)
 	if err != nil {
 		return resp, err
 	}
@@ -326,15 +334,12 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 			return resp, err
 		}
 	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return resp, err
 	}
 	return resp, nil
 }
 
-// codeExists checks a code against a lookup table; nil means "not given", which is fine.
-// table is always one of our own constants, never user input, so putting it into the SQL is safe.
 func codeExists(ctx context.Context, tx pgx.Tx, table string, code *string) (bool, error) {
 	if code == nil {
 		return true, nil
@@ -344,10 +349,9 @@ func codeExists(ctx context.Context, tx pgx.Tx, table string, code *string) (boo
 	return ok, err
 }
 
-// haversineKm: straight-line distance between two points on Earth's surface, in km
 func haversineKm(lat1, lon1, lat2, lon2 float64) float64 {
 	const earthRadiusKm = 6371.0
-	rad := math.Pi / 180 // degrees to radians
+	rad := math.Pi / 180
 	dLat := (lat2 - lat1) * rad
 	dLon := (lon2 - lon1) * rad
 	a := math.Sin(dLat/2)*math.Sin(dLat/2) +

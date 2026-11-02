@@ -1,5 +1,4 @@
 // The cart lives in the browser's localStorage, so it survives reloads and page changes.
-// Components read it through useCart(); any change re-renders every component using it.
 import { useSyncExternalStore } from "react";
 
 export type CartItem = {
@@ -9,30 +8,35 @@ export type CartItem = {
   price_cents: number;
   slots: number;
   qty: number;
-  hidden?: boolean; // a blind-date book: stays a surprise until delivery
+  hidden?: boolean;
 };
 
 export type GiftInfo = {
   gift: boolean;
-  recipient?: string;     // code, e.g. "mom"
-  recipientName?: string; // "Маме", for display
+  recipient?: string;
+  recipientName?: string;
   occasion?: string;
   occasionName?: string;
 };
 
-export type CardChoice = {
-  id?: number;   // design id; none = a plain card you sign by hand
-  name?: string;
-  price_cents: number;
-  text: string;
+export type CardChoice = { id?: number; name?: string; price_cents: number; text: string };
+
+export type Contact = {
+  name: string;
+  phone: string;
+  recipientName: string;  // gifts only
+  recipientPhone: string; // gifts only
+  address: string;
+  comment: string;        // entrance, floor, intercom: added to the address for the courier
 };
 
 export type Cart = {
   items: CartItem[];
   gift?: GiftInfo;
   card?: CardChoice;
-  box: string;        // packaging code: "BAG" by default, or "S", "M", "L", "CUSTOM"
-  bag: string | null; // bag colour code; null = "удиви меня"
+  box: string;
+  bag: string | null;
+  contact?: Contact;
 };
 
 const KEY = "kiv-cart";
@@ -44,7 +48,6 @@ const listeners = new Set<() => void>();
 function read(): Cart {
   if (cache) return cache;
   try {
-    // spread EMPTY first, so carts saved by older versions get the new fields' defaults
     cache = { ...EMPTY, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {
     cache = EMPTY;
@@ -82,7 +85,6 @@ export function addItem(item: Omit<CartItem, "qty">) {
   });
 }
 
-// qty 0 or less removes the item
 export function setQty(id: number, qty: number) {
   const c = read();
   write({
@@ -103,6 +105,11 @@ export function setPackaging(box: string, bag: string | null) {
   write({ ...read(), box, bag: box === "BAG" ? bag : null });
 }
 
+export function setContact(contact: Contact) {
+  write({ ...read(), contact });
+}
+
+// after a successful order: empty the cart, but keep the contacts for next time
 export function clearCart() {
-  write(EMPTY);
+  write({ ...EMPTY, contact: read().contact });
 }

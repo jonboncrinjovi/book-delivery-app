@@ -39,7 +39,7 @@ export default function ExtrasPage() {
       <div className="-mt-4 shrink-0 space-y-4 bg-[#f4ead6] px-5 pb-5 pt-8" style={{ clipPath: TORN }}>
         {row("Добавить цветы?", flowers?.name, () => setSheet("flowers"))}
         {row("Добавить открытку?", cart.card ? (cart.card.name ?? "от руки") : undefined, () => setSheet("card"))}
-        <button onClick={() => router.push("/cart")} className={`${pill} w-full py-3 text-base`}>К оформлению</button>
+        <button onClick={() => router.push("/checkout")} className={`${pill} w-full py-3 text-base`}>К оформлению</button>
       </div>
 
       {sheet === "flowers" && <FlowersSheet bookId={book?.id ?? 0} onClose={() => setSheet(null)} />}

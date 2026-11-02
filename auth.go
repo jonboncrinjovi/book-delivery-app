@@ -182,6 +182,8 @@ type Me struct {
 	Username  *string        `json:"username"`
 	Photo     *string        `json:"photo"`
 	About     string         `json:"about"`
+	Phone     string         `json:"phone"`
+	Address   string         `json:"address"`
 	Favorites []int64        `json:"favorites"`
 	Blocked   []int64        `json:"blocked"`
 	Reads     []ReadBook     `json:"reads"`
@@ -212,8 +214,8 @@ func getMe(pool *pgxpool.Pool) userHandler {
 
 		var me Me
 		if err := pool.QueryRow(ctx,
-			`SELECT id, display_name, username, photo_url, about FROM users WHERE id = $1`, uid,
-		).Scan(&me.ID, &me.Name, &me.Username, &me.Photo, &me.About); err != nil {
+			`SELECT id, display_name, username, photo_url, about, coalesce(phone, ''), coalesce(address, '') FROM users WHERE id = $1`, uid,
+		).Scan(&me.ID, &me.Name, &me.Username, &me.Photo, &me.About, &me.Phone, &me.Address); err != nil {
 			fail(err)
 			return
 		}

@@ -26,6 +26,7 @@ func notifyNewOrder(pool *pgxpool.Pool, orderID int64) {
 		deliverBy                                                    time.Time
 		lat, lon                                                     float64
 		total                                                        int
+		geocoded                                                     bool
 	)
 	err := pool.QueryRow(ctx, `
 		SELECT status::text,
@@ -37,10 +38,10 @@ func notifyNewOrder(pool *pgxpool.Pool, orderID int64) {
 		            THEN 'Подарок: ' || coalesce((SELECT name FROM recipients WHERE code = recipient), '?')
 		                 || ', ' || coalesce((SELECT name FROM occasions WHERE code = occasion), '?')
 		            ELSE 'Для себя' END,
-		       recipient_name, recipient_phone, address, lat, lon, card_text, total_cents
+		       recipient_name, recipient_phone, address, lat, lon, card_text, total_cents, geocoded
 		FROM orders WHERE id = $1`, orderID).Scan(
 		&status, &packaging, &dtype, &deliverBy, &gift,
-		&rName, &rPhone, &address, &lat, &lon, &card, &total)
+		&rName, &rPhone, &address, &lat, &lon, &card, &total, &geocoded)
 	if err != nil {
 		log.Printf("notify: order %d: %v", orderID, err)
 		return
@@ -75,6 +76,9 @@ func notifyNewOrder(pool *pgxpool.Pool, orderID int64) {
 
 	if card != "" {
 		fmt.Fprintf(&b, "\nОткрытка: «%s»\n", card)
+	}
+	if !geocoded {
+		b.WriteString("\nАдрес не найден на карте: уточните доставку.\n")
 	}
 	fmt.Fprintf(&b, "\nКому: %s, %s\n%s\n", rName, rPhone, address)
 	fmt.Fprintf(&b, "https://yandex.ru/maps/?pt=%f,%f&z=17\n", lon, lat)

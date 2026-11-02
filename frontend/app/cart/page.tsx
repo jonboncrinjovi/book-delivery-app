@@ -2,122 +2,170 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { setPackaging, setQty, useCart } from "@/lib/cart";
+import { useRouter } from "next/navigation";
+import { clearCart, setQty, useCart } from "@/lib/cart";
 
-type BoxSize = { code: string; name: string; capacity_slots: number | null; price_cents: number };
-type BagColor = { code: string; name: string; hex: string };
+type Quote = { subtotal_cents: number; delivery_fee_cents: number; total_cents: number; deliver_by: string; geocoded: boolean };
+type BagColor = { code: string; name: string };
+type BoxSize = { code: string; name: string };
 
 const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
-const FREE_FROM = 300000; // mirrors the server's settings table; the server has the final word at checkout
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("ru-RU", { weekday: "long", hour: "2-digit", minute: "2-digit" });
 
-export default function CartPage() {
+export default function OrderPage() {
+  const router = useRouter();
   const cart = useCart();
-  const [boxes, setBoxes] = useState<BoxSize[]>([]);
+  const c = cart.contact;
+  const [express, setExpress] = useState(false);
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
   const [colors, setColors] = useState<BagColor[]>([]);
+  const [boxes, setBoxes] = useState<BoxSize[]>([]);
 
   useEffect(() => {
-    fetch("/api/box-sizes").then((r) => r.json()).then(setBoxes).catch(() => {});
     fetch("/api/bag-colors").then((r) => r.json()).then(setColors).catch(() => {});
+    fetch("/api/box-sizes").then((r) => r.json()).then(setBoxes).catch(() => {});
   }, []);
+
+  const gift = cart.gift?.gift ?? false;
+
+  // the order as the API expects it; no coordinates: the server looks the address up itself
+  function body(dryRun: boolean) {
+    return {
+      dry_run: dryRun,
+      items: cart.items.map((i) => ({ product_id: i.id, quantity: i.qty, hidden: !!i.hidden })),
+      box_size: cart.box,
+      bag_color: cart.bag,
+      gift,
+      card_design_id: cart.card?.id ?? null,
+      card_text: cart.card?.text ?? "",
+      customer_name: c?.name ?? "",
+      customer_phone: c?.phone ?? "",
+      recipient_name: gift ? c?.recipientName ?? "" : c?.name ?? "",
+      recipient_phone: gift ? c?.recipientPhone ?? "" : c?.phone ?? "",
+      address: c ? [c.address, c.comment].filter(Boolean).join(", ") : "",
+      delivery_type: express ? "express" : "standard",
+    };
+  }
+
+  // price it on the server whenever the cart, the address or the delivery type changes
+  useEffect(() => {
+    if (!c || cart.items.length === 0) return;
+    const timer = setTimeout(async () => {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body(true)),
+      });
+      if (res.ok) {
+        setQuote(await res.json());
+        setError("");
+      } else {
+        setQuote(null);
+        setError((await res.text()).trim());
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, express]);
+
+  async function pay() {
+    setSending(true);
+    setError("");
+    const res = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body(false)),
+    });
+    if (!res.ok) {
+      setError((await res.text()).trim());
+      setSending(false);
+      return;
+    }
+    const order = await res.json();
+    clearCart();
+    router.push(`/order/${order.track}`);
+  }
 
   if (cart.items.length === 0) {
     return (
-      <div className="pt-10 text-center">
-        <h1 className="text-3xl font-bold">Корзина пуста</h1>
-        <Link href="/sommelier" className="mt-6 inline-block rounded-full bg-wine px-6 py-3 font-sans text-paper-2">
-          К сомелье
-        </Link>
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <p className="text-xl">Корзина пуста</p>
+        <Link href="/sommelier" className="rounded-full bg-wine px-6 py-3 font-sans text-paper-2">К сомелье</Link>
       </div>
     );
   }
 
-  const packaging = boxes.find((b) => b.code === cart.box);
-  const used = cart.items.reduce((n, i) => n + i.slots * i.qty, 0);
-  const capacity = packaging?.capacity_slots ?? null;
-  const overfull = capacity !== null && used > capacity;
-  const itemsTotal = cart.items.reduce((sum, i) => sum + i.price_cents * i.qty, 0);
-  const subtotal = itemsTotal + (packaging?.price_cents ?? 0) + (cart.card?.price_cents ?? 0);
-  const toFree = Math.max(0, FREE_FROM - subtotal);
+  // the packaging line: bag colour or box, plus flowers and card
+  const packaging = [
+    cart.box === "BAG"
+      ? `пакет${cart.bag ? `, ${colors.find((x) => x.code === cart.bag)?.name ?? ""}` : ", любой цвет"}`
+      : `коробка ${boxes.find((x) => x.code === cart.box)?.name.toLowerCase() ?? ""}`,
+    cart.items.some((i) => i.category === "flowers") && "цветы",
+    cart.card && "открытка",
+  ].filter(Boolean).join(" + ");
+
+  const row = "flex items-center justify-between gap-2";
 
   return (
-    <div className="pt-4">
-      <h1 className="text-3xl font-bold">Корзина</h1>
+    <div className="flex h-full flex-col overflow-hidden rounded-xl bg-[#f4ead6] text-black">
+      {/* the photo: book, wine, cheese (plain kraft until hero.jpg exists) */}
+      <div className="h-[26%] shrink-0 bg-[#c9a77a] bg-cover bg-center" style={{ backgroundImage: "url(/order/hero.jpg)" }} />
 
-      {/* items */}
-      <ul className="mt-5 divide-y divide-line rounded-2xl border border-line bg-paper-2">
-        {cart.items.map((i) => (
-          <li key={i.id} className="flex items-center gap-3 p-4">
-            <div className="flex-1">
-              <p>{i.hidden ? "Книга-сюрприз" : i.name}</p>
-              <p className="font-sans text-sm text-muted">{rub(i.price_cents)}{i.hidden && " · откроешь при получении"}</p>
-            </div>
-            <button onClick={() => setQty(i.id, i.qty - 1)} className="size-9 rounded-full border border-line font-sans">−</button>
-            <span className="w-5 text-center font-sans">{i.qty}</span>
-            <button onClick={() => setQty(i.id, i.qty + 1)} className="size-9 rounded-full border border-line font-sans">+</button>
-          </li>
-        ))}
-      </ul>
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-4 pb-4 pt-3">
+        {/* the lines; only this list scrolls, if it ever gets long */}
+        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto text-lg">
+          {cart.items.map((i) => (
+            <li key={i.id} className={row}>
+              <span className="min-w-0 truncate">{i.hidden ? "Книга-сюрприз" : i.name}{i.qty > 1 ? ` × ${i.qty}` : ""}</span>
+              <span className="flex shrink-0 items-center gap-3">
+                <span className="font-sans text-sm">{rub(i.price_cents * i.qty)}</span>
+                <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Убрать" className="font-sans opacity-50">×</button>
+              </span>
+            </li>
+          ))}
+        </ul>
 
-      {/* gift and card summary */}
-      {cart.gift?.gift && (
-        <p className="mt-4 font-sans text-sm">Подарок: {cart.gift.recipientName}, {cart.gift.occasionName}</p>
-      )}
-      {cart.card && (
-        <p className="mt-1 font-sans text-sm">Открытка{cart.card.name ? ` «${cart.card.name}»` : ""}: «{cart.card.text}»</p>
-      )}
+        <Link href="/sommelier/wrap" className="shrink-0 rounded-md bg-[#7a1f2b] px-4 py-2 text-[#f4ead6]">
+          Упаковка: {packaging}
+        </Link>
 
-      {/* packaging */}
-      <h2 className="mt-8 text-xl font-bold">Упаковка</h2>
-      <p className="mt-1 font-sans text-sm text-muted">Пакет с нашим штампом бесплатно. Или коробка.</p>
+        <Link href="/checkout" className="shrink-0 truncate rounded-md border border-black/30 px-3 py-2 font-sans text-sm">
+          {c ? `Адрес: ${c.address}` : "Указать адрес и телефон →"}
+        </Link>
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        {colors.map((c) => (
-          <button key={c.code} onClick={() => setPackaging("BAG", c.code)} aria-label={c.name}
-            className={`size-12 rounded-xl border-2 ${cart.box === "BAG" && cart.bag === c.code ? "border-wine" : "border-line"}`}
-            style={{ backgroundColor: c.hex }} />
-        ))}
-        <button onClick={() => setPackaging("BAG", null)}
-          className={`rounded-xl border-2 px-3 font-sans text-sm ${cart.box === "BAG" && cart.bag === null ? "border-wine" : "border-line"}`}>
-          Удиви меня
-        </button>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2 font-sans text-sm">
-        {boxes.filter((b) => b.code !== "BAG").map((b) => (
-          <button key={b.code} onClick={() => setPackaging(b.code, null)}
-            className={`rounded-xl border-2 bg-paper-2 p-3 text-left ${cart.box === b.code ? "border-wine" : "border-line"}`}>
-            Коробка {b.name.toLowerCase()}
-            <span className="block text-muted">{b.capacity_slots === null ? "цену обсудим" : rub(b.price_cents)}</span>
+        <div className="grid shrink-0 grid-cols-2 gap-2 font-sans text-sm">
+          <button onClick={() => setExpress(false)}
+            className={`rounded-md border px-3 py-2 ${!express ? "border-[#7a1f2b] bg-[#7a1f2b] text-[#f4ead6]" : "border-black/30"}`}>
+            Обычная{!express && quote ? `: ${quote.delivery_fee_cents === 0 ? "бесплатно" : rub(quote.delivery_fee_cents)}` : ""}
           </button>
-        ))}
-      </div>
-
-      <p className={`mt-3 font-sans text-sm ${overfull ? "text-wine" : "text-muted"}`}>
-        {capacity === null ? `Занято мест: ${used}` : `Занято ${used} из ${capacity} мест`}
-        {overfull && ". Не помещается: выбери коробку побольше."}
-      </p>
-
-      {/* free delivery progress */}
-      <div className="mt-8 rounded-2xl border border-line bg-paper-2 p-4">
-        <div className="h-2 overflow-hidden rounded-full bg-line">
-          <div className="h-full bg-wine transition-all" style={{ width: `${Math.min(100, (subtotal / FREE_FROM) * 100)}%` }} />
+          <button onClick={() => setExpress(true)}
+            className={`rounded-md border px-3 py-2 ${express ? "border-[#7a1f2b] bg-[#7a1f2b] text-[#f4ead6]" : "border-black/30"}`}>
+            Экспресс 2 ч{express && quote ? `: ${rub(quote.delivery_fee_cents)}` : ""}
+          </button>
         </div>
-        <p className="mt-2 font-sans text-sm">
-          {toFree > 0 ? `До бесплатной доставки: ${rub(toFree)}` : "Доставка по городу бесплатно"}
+
+        {quote && (
+          <div className="shrink-0">
+            <p className={`${row} text-xl`}><span>Итог</span><span className="font-bold">{rub(quote.total_cents)}</span></p>
+            <p className="font-sans text-xs opacity-60">
+              Привезём до: {when(quote.deliver_by)}
+              {!quote.geocoded && " · адрес уточним по телефону"}
+            </p>
+          </div>
+        )}
+        {error && <p className="shrink-0 font-sans text-sm text-[#7a1f2b]">{error}</p>}
+
+        <button onClick={pay} disabled={!c || !quote || sending}
+          className="shrink-0 rounded-md bg-[#7a1f2b] px-6 py-3 font-sans uppercase tracking-wide text-[#f4ead6] disabled:opacity-40">
+          {sending ? "Оформляем…" : "Оплатить"}
+        </button>
+        <p className="shrink-0 text-center font-sans text-[10px] opacity-60">
+          Онлайн-оплата скоро появится. Пока мы позвоним, чтобы подтвердить заказ.
         </p>
       </div>
-
-      <div className="mt-6 flex items-center justify-between">
-        <span className="text-xl">Итого</span>
-        <span className="text-2xl font-bold">{rub(subtotal)}</span>
-      </div>
-      <p className="font-sans text-xs text-muted">Без доставки; её посчитаем по адресу.</p>
-
-      {/* a link styled as a button; when the box is overfull it's greyed out and unclickable */}
-      <Link href="/checkout" aria-disabled={overfull}
-        className={`mt-6 block w-full rounded-full bg-wine px-6 py-4 text-center font-sans text-lg text-paper-2 ${overfull ? "pointer-events-none opacity-40" : ""}`}>
-        Оформить заказ
-      </Link>
     </div>
   );
 }
