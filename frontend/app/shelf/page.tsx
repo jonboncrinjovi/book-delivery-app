@@ -2,241 +2,179 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { addItem } from "@/lib/cart";
 import { clearShelf, readShelf, removeFromShelf, useShelf } from "@/lib/shelf";
 
-type Book = {
-  id: number; name: string | null; author: string | null; cover: string | null;
-  hook: string; description: string; price_cents: number;
-  hidden: boolean; blind: boolean; status: string; track: string;
-};
-type Me = { name: string; photo: string | null };
+type Book = { id: number; name: string; author: string | null; cover: string | null; hidden: boolean; review: string | null };
+type Parcel = { track: string; status: string; deliver_by: string; hidden: boolean };
+type Library = { kept: Book[]; bought: Book[]; on_way: Parcel[] };
+type Me = { name: string; username: string | null; photo: string | null };
 
-const PER_SHELF = 4;
-const KEPT_SHELVES = 3;
-const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
+const WINE = "#7a1f2b";
+const CREAM = "#f4ead6";
 
-const statusNames: Record<string, string> = {
-  awaiting_quote: "ждёт расчёта", awaiting_payment: "ждёт оплаты", paid: "оплачен",
-  packing: "собираем", on_the_way: "в пути", delivered: "доставлен",
-};
+// a wooden plank: light top edge, darker front, a soft shadow on the wall below
+function Plank() {
+  return <div className="h-3 w-full shrink-0 rounded-sm bg-gradient-to-b from-[#f3e6cc] to-[#c9ad83] shadow-[0_6px_8px_rgba(0,0,0,0.3)]" />;
+}
 
-// one book standing on a shelf: a cover, or a kraft parcel tied with twine
-function OnShelf({ b, onOpen }: { b: Book; onOpen: () => void }) {
+// one shelf: its name, the books standing on it (scrolling sideways if there are many), the plank
+function Shelf({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
-    <button onClick={onOpen} className="relative aspect-[2/3] h-[88%] shrink-0 shadow-[2px_2px_6px_rgba(0,0,0,.35)] transition active:scale-95">
-      {b.hidden ? (
-        <span className="absolute inset-0 bg-[#c9a77a]">
-          <span className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-[#6e4f2a]" />
-          <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 bg-[#6e4f2a]" />
-          <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-black/70">?</span>
-        </span>
-      ) : b.cover ? (
-        <img src={b.cover} alt={b.name ?? ""} className="absolute inset-0 h-full w-full object-cover" />
-      ) : (
-        <span className="absolute inset-0 flex items-center justify-center bg-[#6b1f2b] p-1 text-center text-[10px] leading-tight text-[#f4ead6]">{b.name}</span>
-      )}
-      {/* an order on its way: a status stamp */}
-      {b.status && b.status !== "delivered" && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 -rotate-6 whitespace-nowrap rounded-sm bg-wine px-1 font-sans text-[9px] text-paper-2">
-          {statusNames[b.status] ?? b.status}
-        </span>
-      )}
-      {/* delivered after a blind date */}
-      {b.blind && b.status === "delivered" && (
-        <span className="absolute inset-x-0 bottom-0 bg-black/60 text-center font-sans text-[9px] text-white">вслепую</span>
-      )}
-    </button>
+    <section className="flex min-h-0 flex-1 flex-col">
+      <p className="shrink-0 font-sans text-[11px] uppercase tracking-wide opacity-60">{title}</p>
+      <div className="flex min-h-0 flex-1 items-end gap-2 overflow-x-auto px-2 pt-1">
+        {count === 0 ? <p className="pb-1 font-sans text-xs opacity-40">Пока пусто</p> : children}
+      </div>
+      <Plank />
+    </section>
   );
 }
 
-// a wooden plank with the books standing on it
-function ShelfRow({ books, onOpen, label }: { books: Book[]; onOpen: (b: Book) => void; label?: string }) {
+// a book standing on a shelf: its cover, the parcel if it's blind, or its first letter on kraft
+function Spine({ book, children }: { book: Book; children?: React.ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col justify-end">
-      {label && <p className="font-sans text-[10px] uppercase tracking-wide text-muted">{label}</p>}
-      <div className="flex min-h-0 flex-1 items-end justify-center gap-3 px-2">
-        {books.map((b) => <OnShelf key={b.id} b={b} onOpen={() => onOpen(b)} />)}
-      </div>
-      <div className="h-2.5 rounded-sm bg-gradient-to-b from-[#d9b98c] to-[#a8835a] shadow-[0_5px_6px_rgba(0,0,0,.25)]" />
+    <div className="relative aspect-[2/3] h-full max-h-24 shrink-0">
+      {book.hidden ? (
+        <img src="/wrap/parcel.png" alt="Книга-сюрприз" className="h-full w-full object-contain" />
+      ) : book.cover ? (
+        <img src={book.cover} alt={book.name} className="h-full w-full rounded-sm object-cover shadow-md" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center rounded-sm bg-[#c9a77a] text-xl shadow-md">{book.name.charAt(0)}</div>
+      )}
+      {children}
     </div>
   );
 }
 
+const Grapes = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill={CREAM}>
+    <circle cx="8" cy="9" r="3" /><circle cx="14" cy="9" r="3" /><circle cx="11" cy="14" r="3" /><circle cx="11" cy="19.5" r="2.5" />
+    <path d="M11 6V2" stroke={CREAM} strokeWidth="1.5" />
+  </svg>
+);
+
 export default function ShelfPage() {
-  const router = useRouter();
-  const local = useShelf();
+  const local = useShelf(); // the browser shelf, which is all a guest has
   const [me, setMe] = useState<Me | null>(null);
   const [guest, setGuest] = useState(false);
-  const [server, setServer] = useState<{ kept: Book[]; orders: Book[] } | null>(null);
-  const [page, setPage] = useState(0);   // which twelve kept books are showing
-  const [oPage, setOPage] = useState(0); // which four orders are showing
-  const [open, setOpen] = useState<Book | null>(null);
-
-  async function load() {
-    const res = await fetch("/api/me/shelf");
-    if (res.ok) setServer(await res.json());
-  }
+  const [lib, setLib] = useState<Library | null>(null);
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/me");
-      if (!res.ok) {
+      const r = await fetch("/api/me");
+      if (!r.ok) {
         setGuest(true);
         return;
       }
-      setMe(await res.json());
-      // books kept before logging in: move them to the server, then forget the browser copy
+      setMe(await r.json());
+      // books kept before logging in move to the server, then the browser copy is cleared
       const leftovers = readShelf();
-      await Promise.all(leftovers.map((i) =>
-        fetch("/api/me/shelf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ product_id: i.id, hidden: i.hidden }),
-        }).catch(() => {})));
-      if (leftovers.length) clearShelf();
-      load();
+      if (leftovers.length) {
+        await Promise.all(leftovers.map((i) =>
+          fetch("/api/me/shelf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ product_id: i.id, hidden: i.hidden }),
+          }).catch(() => {})));
+        clearShelf();
+      }
+      const l = await fetch("/api/me/library");
+      if (l.ok) setLib(await l.json());
     })();
   }, []);
 
-  // opening a book that isn't wrapped: fetch its description if we don't have it yet
-  useEffect(() => {
-    if (!open || open.hidden || open.description) return;
-    fetch(`/api/sommelier/reveal/${open.id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setOpen((o) => (o && o.id === d.id ? { ...o, ...d } : o)))
-      .catch(() => {});
-  }, [open]);
-
-  // guests: the browser's shelf, shaped like the server's
-  const localBooks: Book[] = local.map((i) => ({
-    id: i.id, name: i.hidden ? null : i.name ?? null, author: null, cover: i.hidden ? null : i.cover ?? null,
-    hook: "", description: "", price_cents: i.price_cents ?? 0,
-    hidden: i.hidden, blind: i.hidden, status: "", track: "",
-  }));
-  const kept = guest ? localBooks : server?.kept ?? [];
-  const orders = guest ? [] : server?.orders ?? [];
-
-  const perPage = PER_SHELF * KEPT_SHELVES;
-  const pages = Math.max(1, Math.ceil(kept.length / perPage));
-  const visible = kept.slice(page * perPage, (page + 1) * perPage);
-  const oPages = Math.max(1, Math.ceil(orders.length / PER_SHELF));
-  const visibleOrders = orders.slice(oPage * PER_SHELF, (oPage + 1) * PER_SHELF);
-
-  function toCart(b: Book) {
-    addItem({ id: b.id, category: "book", name: b.name ?? "Книга-сюрприз", price_cents: b.price_cents, slots: 2, hidden: b.hidden });
-    router.push(`/sommelier/next?book=${b.id}`);
+  function remove(id: number) {
+    removeFromShelf(id); // also deletes it on the server
+    setLib((l) => (l ? { ...l, kept: l.kept.filter((b) => b.id !== id) } : l));
   }
 
-  async function remove(b: Book) {
-    removeFromShelf(b.id);
-    setOpen(null);
-    if (!guest) {
-      await fetch(`/api/me/shelf/${b.id}`, { method: "DELETE" });
-      load();
-    }
-  }
-
-  const arrow = "font-sans text-xl text-muted disabled:opacity-20";
+  const kept: Book[] = guest
+    ? local.map((i) => ({ id: i.id, name: i.name ?? "", author: null, cover: i.cover ?? null, hidden: i.hidden, review: null }))
+    : lib?.kept ?? [];
+  const toReview = lib?.bought.filter((b) => !b.review) ?? [];
+  const reviewed = lib?.bought.filter((b) => b.review) ?? [];
+  const onWay = lib?.on_way ?? [];
 
   return (
-    <div className="relative flex h-full flex-col gap-2">
-      {/* top: who you are (or log in), and paging */}
-      <div className="flex shrink-0 items-center justify-between">
-        <Link href="/account" className="flex items-center gap-2 font-sans text-sm">
-          {me?.photo && <img src={me.photo} alt="" className="size-7 rounded-full" />}
-          <span>{me ? me.name : "Войти"}</span>
-        </Link>
-        {pages > 1 && (
-          <div className="flex items-center gap-3">
-            <button className={arrow} disabled={page === 0} onClick={() => setPage(page - 1)}>‹</button>
-            <span className="font-sans text-xs text-muted">{page + 1}/{pages}</span>
-            <button className={arrow} disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>›</button>
-          </div>
-        )}
-      </div>
-
-      {/* three shelves of kept books */}
-      {Array.from({ length: KEPT_SHELVES }, (_, s) => (
-        <ShelfRow key={s} books={visible.slice(s * PER_SHELF, (s + 1) * PER_SHELF)} onOpen={setOpen} />
-      ))}
-
-      {/* the bottom shelf: orders */}
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <ShelfRow books={visibleOrders} onOpen={setOpen} label="Заказы" />
-        {oPages > 1 && (
-          <div className="absolute right-0 top-0 flex gap-3">
-            <button className={arrow} disabled={oPage === 0} onClick={() => setOPage(oPage - 1)}>‹</button>
-            <button className={arrow} disabled={oPage >= oPages - 1} onClick={() => setOPage(oPage + 1)}>›</button>
-          </div>
-        )}
-      </div>
-
-      {kept.length === 0 && orders.length === 0 && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <p className="pointer-events-auto mx-6 rounded-2xl bg-paper-2/90 p-4 text-center">
-            Полки пока пусты. <Link href="/sommelier" className="text-wine underline">Сомелье знает, чем их заполнить.</Link>
-          </p>
-        </div>
-      )}
-      {guest && kept.length > 0 && (
-        <p className="shrink-0 text-center font-sans text-[11px] text-muted">
-          <Link href="/account" className="underline">Войдите</Link>, чтобы полка была с вами на всех устройствах
-        </p>
-      )}
-
-      {/* a book, opened: framed, on its own plank */}
-      {open && (
-        <div className="absolute inset-0 z-20 flex flex-col rounded-xl border-[3px] border-double border-black/50 bg-[#efe6d4] p-4 text-black">
-          <button onClick={() => setOpen(null)} aria-label="Закрыть" className="absolute right-3 top-2 font-sans text-xl">×</button>
-
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-end">
-            <div className="flex min-h-0 flex-1 items-end">
-              <OnShelf b={open} onOpen={() => {}} />
-            </div>
-            <div className="h-2.5 w-3/4 rounded-sm bg-gradient-to-b from-[#d9b98c] to-[#a8835a] shadow-[0_5px_6px_rgba(0,0,0,.25)]" />
-          </div>
-
-          <div className="mt-4 shrink-0 space-y-2 text-center">
-            {open.hidden ? (
-              <p>Это свидание вслепую. Вы узнаете её при получении.</p>
+    <div className="flex h-full flex-col gap-3 overflow-hidden rounded-xl bg-[#d9cdb8] p-4 text-black">
+      {/* who's here: photo and name (leads to the profile settings), or the way in */}
+      <div className="flex shrink-0 items-center gap-3">
+        {me ? (
+          <Link href="/account" className="flex items-center gap-3">
+            {me.photo ? (
+              <img src={me.photo} alt="" className="h-12 w-12 rounded-full object-cover shadow-md" />
             ) : (
-              <>
-                <p className="text-xl font-bold">{open.name}</p>
-                {open.author && <p className="font-sans text-sm opacity-60">{open.author}</p>}
-                {(open.hook || open.description) && (
-                  <p className="line-clamp-4 text-sm italic">{open.hook ? `«${open.hook}»` : open.description}</p>
-                )}
-              </>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full text-xl" style={{ background: WINE, color: CREAM }}>
+                {me.name.charAt(0)}
+              </div>
             )}
-            {open.blind && open.status === "delivered" && (
-              <p className="font-sans text-xs opacity-60">Вы заказали её вслепую.</p>
-            )}
-
-            {/* what you can do depends on where the book is */}
-            {!open.status && (
-              <>
-                <button onClick={() => toCart(open)}
-                  className="w-full rounded-full bg-[#7a1f2b] px-6 py-3 font-sans text-[#f4ead6]">
-                  Добавить в корзину · {rub(open.price_cents)}
-                </button>
-                <button onClick={() => remove(open)} className="font-sans text-xs opacity-60 underline">Убрать с полки</button>
-              </>
-            )}
-            {open.status && open.status !== "delivered" && (
-              <Link href={`/order/${open.track}`}
-                className="block w-full rounded-full bg-[#7a1f2b] px-6 py-3 font-sans text-[#f4ead6]">
-                Отследить заказ
-              </Link>
-            )}
-            {open.status === "delivered" && (
-              <Link href="/reviews" className="block w-full rounded-full bg-[#7a1f2b] px-6 py-3 font-sans text-[#f4ead6]">
-                Оставить отзыв
-              </Link>
-            )}
+            <div>
+              <p className="text-xl leading-tight">{me.name}</p>
+              {me.username && <p className="font-sans text-xs opacity-60">@{me.username}</p>}
+            </div>
+          </Link>
+        ) : guest ? (
+          <div className="flex items-center gap-3">
+            <Link href="/account" className="rounded-full px-4 py-2 font-sans text-sm" style={{ background: WINE, color: CREAM }}>
+              Войти через Telegram
+            </Link>
+            <p className="font-sans text-xs opacity-60">чтобы полка не потерялась</p>
           </div>
-        </div>
+        ) : (
+          <div className="h-12" />
+        )}
+      </div>
+
+      <Shelf title="Ждут своего часа" count={kept.length}>
+        {kept.map((b) => (
+          <Spine key={b.id} book={b}>
+            <Link href={`/sommelier/next?book=${b.id}`} className="absolute inset-0" aria-label="Заказать" />
+            <button onClick={() => remove(b.id)} aria-label="Убрать с полки"
+              className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 font-sans text-xs text-white">
+              ×
+            </button>
+          </Spine>
+        ))}
+      </Shelf>
+
+      {!guest && (
+        <>
+          <Shelf title="Ждут рецензии" count={toReview.length}>
+            {toReview.map((b) => (
+              <Link key={b.id} href={`/reviews?write=${b.id}`} className="h-full max-h-24">
+                <Spine book={b}>
+                  {/* the wine bookmark */}
+                  <div className="absolute -top-1 right-2 h-8 w-3 [clip-path:polygon(0_0,100%_0,100%_100%,50%_80%,0_100%)]"
+                    style={{ background: WINE }} />
+                </Spine>
+              </Link>
+            ))}
+          </Shelf>
+
+          <Shelf title="С рецензией" count={reviewed.length}>
+            {reviewed.map((b) => (
+              <Spine key={b.id} book={b}>
+                {b.review === "published" ? (
+                  <div className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full shadow" style={{ background: WINE }}>
+                    <Grapes />
+                  </div>
+                ) : (
+                  <div className="absolute inset-x-0 bottom-1 mx-1 rounded-sm bg-black/60 text-center font-sans text-[9px] text-white">
+                    {b.review === "pending" ? "на проверке" : "отклонена"}
+                  </div>
+                )}
+              </Spine>
+            ))}
+          </Shelf>
+
+          <Shelf title="В пути" count={onWay.length}>
+            {onWay.map((p) => (
+              <Link key={p.track} href={`/order/${p.track}`} className="aspect-square h-full max-h-24 shrink-0">
+                <img src={p.hidden ? "/wrap/parcel.png" : "/wrap/parcel-open.png"} alt="Заказ в пути" className="h-full w-full object-contain" />
+              </Link>
+            ))}
+          </Shelf>
+        </>
       )}
     </div>
   );

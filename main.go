@@ -81,6 +81,7 @@ func main() {
 
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
+	mux.HandleFunc("GET /api/me/library", myLibrary(pool))
 
 	go runBot(pool)
 
