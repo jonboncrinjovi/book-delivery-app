@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Disclaimer } from "@/components/Disclaimer";
 import { useRouter } from "next/navigation";
 import { clearCart, setQty, useCart, type CartItem } from "@/lib/cart";
 
@@ -187,7 +188,7 @@ export default function OrderPage() {
         {sending ? "Оформляем…" : "Оплатить"}
       </button>
       <p className="shrink-0 text-center font-sans text-[10px] opacity-60">
-        Онлайн-оплата скоро появится. Пока мы позвоним, чтобы подтвердить заказ.
+        Онлайн-оплата скоро появится. Пока мы позвоним, чтобы подтвердить заказ.<Disclaimer />
       </p>
     </div>
   );

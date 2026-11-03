@@ -141,7 +141,7 @@ export default function ShelfPage() {
         <>
           <Shelf title="Ждут рецензии" count={toReview.length}>
             {toReview.map((b) => (
-              <Link key={b.id} href={`/reviews?write=${b.id}`} className="h-full max-h-24">
+              <Link key={b.id} href={`/book/${b.id}?write=1`} className="h-full max-h-24">
                 <Spine book={b}>
                   {/* the wine bookmark */}
                   <div className="absolute -top-1 right-2 h-8 w-3 [clip-path:polygon(0_0,100%_0,100%_100%,50%_80%,0_100%)]"

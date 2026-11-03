@@ -77,3 +77,5 @@ body {
 
 /* thrown cards fly past the edge without creating a horizontal scrollbar */
 html, body { overflow-x: clip; }
+
+@keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
