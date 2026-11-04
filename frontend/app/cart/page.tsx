@@ -188,7 +188,7 @@ export default function OrderPage() {
         {sending ? "Оформляем…" : "Оплатить"}
       </button>
       <p className="shrink-0 text-center font-sans text-[10px] opacity-60">
-        Онлайн-оплата скоро появится. Пока мы позвоним, чтобы подтвердить заказ.<Disclaimer />
+        Онлайн-оплата скоро появится. Подтвердите заказ в Telegram на следующем экране, или мы позвоним.<Disclaimer />
       </p>
     </div>
   );

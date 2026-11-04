@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ConfirmBox } from "@/components/ConfirmBox";
 
 type Track = {
   id: number;
@@ -167,6 +168,7 @@ export default function TrackPage() {
           </div>
         ) : (
           <div className="space-y-2">
+            <ConfirmBox token={token} status={order.status} />
             {order.status === "awaiting_payment" && (
               <p className="font-sans text-sm" style={{ color: WINE }}>Ждём оплату. Мы позвоним, чтобы подтвердить заказ.</p>
             )}

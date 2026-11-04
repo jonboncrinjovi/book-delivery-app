@@ -20,6 +20,7 @@ import (
 type tgUpdate struct {
 	UpdateID      int64       `json:"update_id"`
 	CallbackQuery *tgCallback `json:"callback_query"`
+	Message       *tgIncoming `json:"message"`
 }
 
 type tgCallback struct {
@@ -120,7 +121,7 @@ func runBot(pool *pgxpool.Pool) {
 		var updates []tgUpdate
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		err := tgCall(ctx, token, "getUpdates", map[string]any{
-			"offset": offset, "timeout": 50, "allowed_updates": []string{"callback_query"},
+			"offset": offset, "timeout": 50, "allowed_updates": []string{"callback_query", "message"},
 		}, &updates)
 		cancel()
 		if err != nil {
@@ -130,6 +131,9 @@ func runBot(pool *pgxpool.Pool) {
 		}
 		for _, u := range updates {
 			offset = u.UpdateID + 1
+			if u.Message != nil {
+				handleMessage(pool, token, u.Message)
+			}
 			if u.CallbackQuery != nil {
 				handleCallback(pool, token, owner, u.CallbackQuery)
 			}
@@ -155,6 +159,10 @@ func handleCallback(pool *pgxpool.Pool, token string, owner int64, cq *tgCallbac
 		}
 	}
 
+	if strings.HasPrefix(cq.Data, "cf:") { // customers confirming orders, before the owner-only check
+		handleConfirm(ctx, pool, token, owner, cq, answer)
+		return
+	}
 	if cq.From.ID != owner {
 		answer("Нет доступа")
 		return

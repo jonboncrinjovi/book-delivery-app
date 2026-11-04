@@ -81,6 +81,7 @@ func main() {
 
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
+	mux.HandleFunc("GET /api/track/{token}/confirm", confirmInfo(pool))
 	mux.HandleFunc("GET /api/books/find", findBooks(pool))
 	mux.HandleFunc("GET /api/products/{id}", productCard(pool))
 	mux.HandleFunc("GET /api/me/library", myLibrary(pool))
