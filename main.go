@@ -87,6 +87,7 @@ func main() {
 	mux.HandleFunc("GET /api/me/library", myLibrary(pool))
 
 	go runBot(pool)
+	go expireUnconfirmed(pool)
 
 	log.Println("listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))

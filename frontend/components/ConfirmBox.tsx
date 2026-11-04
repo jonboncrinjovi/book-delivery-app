@@ -40,7 +40,7 @@ export function ConfirmBox({ token, status }: { token: string; status: string })
         className="block rounded-full bg-[#7a1f2b] px-5 py-2 text-center font-sans text-[#f4ead6]">
         Подтвердить в Telegram
       </a>
-      <p className="text-center font-sans text-xs opacity-60">или дождитесь нашего звонка</p>
+      <p className="text-center font-sans text-xs opacity-60">без подтверждения заказ отменится через 2 часа</p>
     </div>
   );
 }

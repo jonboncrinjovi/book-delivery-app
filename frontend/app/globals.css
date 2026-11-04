@@ -79,3 +79,10 @@ body {
 html, body { overflow-x: clip; }
 
 @keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
+
+/* the fonts ship with the app (Fontsource); these are the names the theme above reads */
+:root {
+  --font-pt-serif: "PT Serif", Georgia, serif;
+  --font-inter: "Inter Variable", system-ui, sans-serif;
+  --font-caveat: "Caveat Variable", cursive;
+}

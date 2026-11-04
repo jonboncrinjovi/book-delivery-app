@@ -170,10 +170,10 @@ export default function TrackPage() {
           <div className="space-y-2">
             <ConfirmBox token={token} status={order.status} />
             {order.status === "awaiting_payment" && (
-              <p className="font-sans text-sm" style={{ color: WINE }}>Ждём оплату. Мы позвоним, чтобы подтвердить заказ.</p>
+              <p className="font-sans text-sm" style={{ color: WINE }}>Подтвердите заказ в Telegram, и мы начнём его собирать.</p>
             )}
             {order.status === "awaiting_quote" && (
-              <p className="font-sans text-sm" style={{ color: WINE }}>Считаем стоимость упаковки и позвоним вам.</p>
+              <p className="font-sans text-sm" style={{ color: WINE }}>Считаем стоимость упаковки и напишем вам в Telegram.</p>
             )}
             <p className="text-lg">
               Привезём до: <span className="font-semibold">{when(order.deliver_by)}</span>
