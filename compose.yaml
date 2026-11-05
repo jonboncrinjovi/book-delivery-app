@@ -19,6 +19,7 @@ services:
     build: .
     volumes:
       - ./media:/media:ro
+      - ./prints:/prints
     environment:
       DATABASE_URL: postgres://app:${DB_PASSWORD}@db:5432/books
       ADMIN_TOKEN: ${ADMIN_TOKEN}

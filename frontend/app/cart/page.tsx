@@ -19,6 +19,7 @@ function Thumb({ item, src }: { item: CartItem; src?: string }) {
   if (item.hidden) {
     return <img src="/wrap/parcel.png" alt="" className="h-14 w-11 shrink-0 object-contain" />;
   }
+  if (item.print?.image) src = `/api/uploads/${item.print.image}`;
   if (src) {
     return <img src={src} alt="" className="h-14 w-11 shrink-0 rounded-sm object-cover shadow-sm" />;
   }
@@ -59,7 +60,7 @@ export default function OrderPage() {
   function body(dryRun: boolean) {
     return {
       dry_run: dryRun,
-      items: cart.items.map((i) => ({ product_id: i.id, quantity: i.qty, hidden: !!i.hidden })),
+      items: cart.items.map((i) => ({ product_id: i.id, quantity: i.qty, hidden: !!i.hidden, print: i.print })),
       box_size: cart.box,
       bag_color: cart.bag,
       gift,
@@ -157,6 +158,7 @@ export default function OrderPage() {
         Упаковка: {packaging}
       </Link>
 
+      <div className="flex shrink-0 gap-2 font-sans text-xs"><Link href="/print/card" className="flex-1 rounded-md border border-[#7a1f2b] px-2 py-1.5 text-center text-[#7a1f2b]">+ своя открытка</Link><Link href="/print/wrap" className="flex-1 rounded-md border border-[#7a1f2b] px-2 py-1.5 text-center text-[#7a1f2b]">+ своя упаковка для цветов</Link></div>
       <Link href="/checkout" className="shrink-0 truncate rounded-md border border-black/30 px-3 py-2 font-sans text-sm">
         {c ? `Адрес: ${c.address}` : "Указать адрес и телефон →"}
       </Link>

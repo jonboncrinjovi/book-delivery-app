@@ -27,9 +27,10 @@ func mustLoadLocation(name string) *time.Location {
 }
 
 type OrderItemReq struct {
-	ProductID int64 `json:"product_id"`
-	Quantity  int   `json:"quantity"`
-	Hidden    bool  `json:"hidden"`
+	ProductID int64     `json:"product_id"`
+	Quantity  int       `json:"quantity"`
+	Hidden    bool      `json:"hidden"`
+	Print     *PrintReq `json:"print"` // the design, for cards and wrapping printed to order
 }
 
 // what the customer sends; no prices, no totals: the server decides those
@@ -105,6 +106,7 @@ func createOrder(pool *pgxpool.Pool) http.HandlerFunc {
 				}
 			}
 			go notifyNewOrder(pool, resp.ID)
+			go makePrints(pool, resp.ID)
 			writeJSON(w, http.StatusCreated, resp)
 		}
 	}
@@ -136,12 +138,19 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 
 	qty := map[int64]int{}
 	hidden := map[int64]bool{}
+	prints := map[int64]*PrintReq{}
 	for _, it := range req.Items {
 		if it.Quantity <= 0 {
 			return resp, badRequest{"Количество должно быть больше нуля"}
 		}
 		qty[it.ProductID] += it.Quantity
 		hidden[it.ProductID] = hidden[it.ProductID] || it.Hidden
+		if it.Print != nil {
+			if _, dup := prints[it.ProductID]; dup {
+				return resp, badRequest{"В заказе может быть одна открытка каждого размера и одна упаковка"}
+			}
+			prints[it.ProductID] = it.Print
+		}
 	}
 	ids := make([]int64, 0, len(qty))
 	for id := range qty {
@@ -218,9 +227,10 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		var name string
 		var price, stock, sl int
 		var active bool
+		var printKind *string
 		err := tx.QueryRow(ctx,
-			`SELECT name, price_cents, stock, slots, active FROM products WHERE id = $1 FOR UPDATE`,
-			id).Scan(&name, &price, &stock, &sl, &active)
+			`SELECT name, price_cents, stock, slots, active, print_kind FROM products WHERE id = $1 FOR UPDATE`,
+			id).Scan(&name, &price, &stock, &sl, &active, &printKind)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && !active) {
 			return resp, badRequest{"Один из товаров больше недоступен"}
 		}
@@ -232,6 +242,16 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 				name = "книги-сюрприза"
 			}
 			return resp, badRequest{fmt.Sprintf("Осталось только %d шт. %s", stock, name)}
+		}
+		if printKind != nil {
+			if qty[id] != 1 {
+				return resp, badRequest{"Открытку и упаковку печатаем в одном экземпляре"}
+			}
+			if err := checkPrint(ctx, tx, *printKind, prints[id]); err != nil {
+				return resp, err
+			}
+		} else {
+			delete(prints, id)
 		}
 		prices[id] = price
 		itemsTotal += price * qty[id]
@@ -331,6 +351,14 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 		}
 		if _, err := tx.Exec(ctx,
 			`UPDATE products SET stock = stock - $1 WHERE id = $2`, qty[id], id); err != nil {
+			return resp, err
+		}
+	}
+	for id, p := range prints {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO order_prints (order_id, product_id, image, image2, caption, body)
+			VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), $5, $6)`,
+			resp.ID, id, p.Image, p.Image2, p.Caption, p.Body); err != nil {
 			return resp, err
 		}
 	}

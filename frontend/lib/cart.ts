@@ -9,6 +9,7 @@ export type CartItem = {
   slots: number;
   qty: number;
   hidden?: boolean;
+  print?: PrintSpec; // a card or wrapping printed to the customer's design
 };
 
 export type GiftInfo = {
@@ -112,4 +113,12 @@ export function setContact(contact: Contact) {
 // after a successful order: empty the cart, but keep the contacts for next time
 export function clearCart() {
   write({ ...EMPTY, contact: read().contact });
+}
+
+export type PrintSpec = { image: string; image2?: string; caption: string; body: string };
+
+// a printed item replaces an earlier design of the same product instead of adding a second copy
+export function setPrintItem(item: Omit<CartItem, "qty">) {
+  const c = read();
+  write({ ...c, items: [...c.items.filter((i) => i.id !== item.id), { ...item, qty: 1 }] });
 }

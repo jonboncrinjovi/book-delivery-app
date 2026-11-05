@@ -81,6 +81,9 @@ func main() {
 
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
+	mux.HandleFunc("GET /api/prints", listPrintProducts(pool))
+	mux.HandleFunc("GET /api/uploads/{id}", serveUpload())
+	mux.HandleFunc("POST /api/uploads", uploadImage(pool))
 	mux.HandleFunc("GET /api/track/{token}/confirm", confirmInfo(pool))
 	mux.HandleFunc("GET /api/books/find", findBooks(pool))
 	mux.HandleFunc("GET /api/products/{id}", productCard(pool))
@@ -88,6 +91,7 @@ func main() {
 
 	go runBot(pool)
 	go expireUnconfirmed(pool)
+	go cleanupPrints(pool)
 
 	log.Println("listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
