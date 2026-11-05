@@ -13,7 +13,7 @@ import BottomNav from "@/components/BottomNav";
 
 
 export const metadata: Metadata = {
-  title: "Книжки и винишко",
+  title: "Книжки&Винишко",
   description: "Книги, вино без алкоголя, закуски и цветы с доставкой",
 };
 
@@ -47,6 +47,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </div>
         </main>
 
+        <p className="shrink-0 pb-1 text-center font-sans text-[10px] text-on-chrome opacity-70"><Link href="/legal">Документы и реквизиты</Link></p>
         <BottomNav />
       </body>
     </html>

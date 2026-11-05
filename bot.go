@@ -197,6 +197,9 @@ func handleCallback(pool *pgxpool.Pool, token string, owner int64, cq *tgCallbac
 		}
 		answer(statusLabels[target])
 		edit(statusLabels[target], keyboard(id, target))
+		if target == "delivered" {
+			go sendReturnNotice(pool, token, id)
+		}
 
 	case "rv", "sr": // review moderation: books and service
 		action := parts[2]
