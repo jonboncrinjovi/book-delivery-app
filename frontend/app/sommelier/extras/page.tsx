@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { addItem, setCard, useCart } from "@/lib/cart";
 
@@ -18,6 +19,9 @@ export default function ExtrasPage() {
 
   const flowers = cart.items.find((i) => i.category === "flowers");
   const book = cart.items.find((i) => i.category === "book");
+  // the customer's own designs, printed to order
+  const ownCard = cart.items.find((i) => i.print && i.name.includes("открытка"));
+  const ownWrap = cart.items.find((i) => i.print && i.name.includes("упаковка"));
 
   // one question row: the + turns into ✓ and a name once something is chosen
   const row = (question: string, chosen: string | undefined, open: () => void) => (
@@ -31,6 +35,8 @@ export default function ExtrasPage() {
     </div>
   );
 
+  const cardChosen = ownCard ? "своя открытка" : cart.card ? (cart.card.name ?? "от руки") : undefined;
+
   return (
     <div className="relative flex h-full flex-col overflow-hidden rounded-xl text-black">
       {/* the box, as a photo (or plain kraft until it exists) */}
@@ -38,7 +44,12 @@ export default function ExtrasPage() {
 
       <div className="-mt-4 shrink-0 space-y-4 bg-[#f4ead6] px-5 pb-5 pt-8" style={{ clipPath: TORN }}>
         {row("Добавить цветы?", flowers?.name, () => setSheet("flowers"))}
-        {row("Добавить открытку?", cart.card ? (cart.card.name ?? "от руки") : undefined, () => setSheet("card"))}
+        {flowers && (
+          <Link href="/print/wrap" className="-mt-2 block text-right font-sans text-sm text-[#7a1f2b] underline underline-offset-2">
+            {ownWrap ? "✓ своя упаковка для цветов" : "+ своя упаковка для цветов"}
+          </Link>
+        )}
+        {row("Добавить открытку?", cardChosen, () => setSheet("card"))}
         <button onClick={() => router.push("/checkout")} className={`${pill} w-full py-3 text-base`}>К оформлению</button>
       </div>
 
@@ -98,7 +109,7 @@ function FlowersSheet({ bookId, onClose }: { bookId: number; onClose: () => void
   );
 }
 
-// card designs and the text to write in it
+// card designs and the text to write in it, or the customer's own card
 function CardSheet({ onClose }: { onClose: () => void }) {
   const [cards, setCards] = useState<Design[]>([]);
   const [picked, setPicked] = useState<Design | null>(null);
@@ -111,6 +122,8 @@ function CardSheet({ onClose }: { onClose: () => void }) {
   return (
     <div className="absolute inset-0 z-20 flex flex-col gap-3 bg-[#f4ead6] p-4 motion-safe:animate-swoop">
       <p className="shrink-0 text-xl">Открытка</p>
+      <Link href="/print/card" className={`${pill} shrink-0 text-center`}>Сделать свою открытку с фото →</Link>
+      <p className="shrink-0 text-center font-sans text-xs opacity-60">или выберите готовую</p>
       {cards.length > 0 ? (
         <div className="grid min-h-0 shrink grid-cols-3 gap-2 overflow-y-auto">
           {cards.map((c) => (

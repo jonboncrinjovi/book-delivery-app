@@ -67,7 +67,7 @@ export default function CardEditor() {
       id: product.id, name: product.name, category: "stationery", price_cents: product.price_cents, slots: 1,
       print: { image: front.id, image2: inner?.id, caption: caption.trim(), body: body.trim() },
     });
-    router.push("/cart");
+    router.back();
   }
 
   const panel = "relative flex-1 overflow-hidden bg-white shadow-md";

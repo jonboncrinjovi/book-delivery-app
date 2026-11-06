@@ -47,15 +47,11 @@ export default function BottomNav() {
     <nav className="relative z-50 shrink-0 bg-chrome text-on-chrome shadow-[0_-4px_16px_rgba(0,0,0,.2)]">
       <ul className="mx-auto flex max-w-md items-end justify-around px-2 pb-[env(safe-area-inset-bottom)]">
         {left.map(tab)}
-        {/* the butler: his face, raised above the bar */}
+        {/* the butler: his icon on a kraft disc, raised above the bar */}
         <li className="-mt-8">
           <Link href="/sommelier" aria-label="Сомелье"
-            className="relative block size-16 overflow-hidden rounded-full bg-on-chrome shadow-lg ring-4 ring-chrome">
-            {/* stand-in: the face cropped live from the big picture.
-                When you export a separate head image, replace with
-                <Image src="/butler-head.png" alt="" fill sizes="64px" className="object-cover" /> */}
-            <Image src="/butler.png" alt="" fill sizes="64px" className="object-cover"
-              style={{ objectPosition: "50% 22%", transform: "scale(2.6)", transformOrigin: "50% 24%" }} />
+            className="relative block size-16 overflow-hidden rounded-full bg-[#e7d2af] shadow-lg ring-4 ring-chrome">
+            <Image src="/nav/butler-icon.png" alt="" fill sizes="64px" className="object-contain p-1.5" />
           </Link>
         </li>
         {right.map(tab)}

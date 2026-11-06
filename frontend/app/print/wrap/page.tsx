@@ -46,7 +46,7 @@ export default function WrapEditor() {
       id: product.id, name: product.name, category: "stationery", price_cents: product.price_cents, slots: 1,
       print: { image: pic?.id ?? "", caption: caption.trim(), body: "" },
     });
-    router.push("/cart");
+    router.back();
   }
 
   // the same pattern as the print: a 3×5 grid, photos and the phrase alternating
