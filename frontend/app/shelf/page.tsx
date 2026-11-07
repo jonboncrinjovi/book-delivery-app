@@ -9,7 +9,7 @@ type Parcel = { track: string; status: string; deliver_by: string; hidden: boole
 type Library = { kept: Book[]; bought: Book[]; on_way: Parcel[] };
 type Me = { name: string; username: string | null; photo: string | null };
 
-const WINE = "#7a1f2b";
+const WINE = "#57030d";
 const CREAM = "#f4ead6";
 
 // a wooden plank: light top edge, darker front, a soft shadow on the wall below

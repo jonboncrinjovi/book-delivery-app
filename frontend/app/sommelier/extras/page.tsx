@@ -10,7 +10,7 @@ type Design = { id: number; kind: string; name: string; image_path: string | nul
 
 const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
 const TORN = "polygon(0 6%, 4% 0, 9% 5%, 15% 1%, 21% 6%, 27% 2%, 33% 5%, 40% 0, 46% 6%, 53% 2%, 60% 5%, 66% 1%, 73% 6%, 80% 2%, 86% 5%, 93% 0, 100% 5%, 100% 100%, 0 100%)";
-const pill = "rounded-full bg-[#7a1f2b] px-4 py-2.5 font-sans text-sm text-[#f4ead6] shadow-md transition active:scale-95 disabled:opacity-40";
+const pill = "rounded-full bg-[#57030d] px-4 py-2.5 font-sans text-sm text-[#f4ead6] shadow-md transition active:scale-95 disabled:opacity-40";
 
 export default function ExtrasPage() {
   const router = useRouter();
@@ -28,8 +28,8 @@ export default function ExtrasPage() {
     <div className="flex items-center justify-between gap-3">
       <span className="text-xl">{question}</span>
       <button onClick={open}
-        className={chosen ? "max-w-[50%] truncate rounded-md border border-[#7a1f2b] px-3 py-1.5 font-sans text-sm text-[#7a1f2b]"
-          : "flex h-9 w-14 items-center justify-center rounded-md bg-[#7a1f2b] text-2xl text-[#f4ead6] shadow"}>
+        className={chosen ? "max-w-[50%] truncate rounded-md border border-[#57030d] px-3 py-1.5 font-sans text-sm text-[#57030d]"
+          : "flex h-9 w-14 items-center justify-center rounded-md bg-[#57030d] text-2xl text-[#f4ead6] shadow"}>
         {chosen ? `✓ ${chosen}` : "+"}
       </button>
     </div>
@@ -45,7 +45,7 @@ export default function ExtrasPage() {
       <div className="-mt-4 shrink-0 space-y-4 bg-[#f4ead6] px-5 pb-5 pt-8" style={{ clipPath: TORN }}>
         {row("Добавить цветы?", flowers?.name, () => setSheet("flowers"))}
         {flowers && (
-          <Link href="/print/wrap" className="-mt-2 block text-right font-sans text-sm text-[#7a1f2b] underline underline-offset-2">
+          <Link href="/print/wrap" className="-mt-2 block text-right font-sans text-sm text-[#57030d] underline underline-offset-2">
             {ownWrap ? "✓ своя упаковка для цветов" : "+ своя упаковка для цветов"}
           </Link>
         )}
@@ -128,7 +128,7 @@ function CardSheet({ onClose }: { onClose: () => void }) {
         <div className="grid min-h-0 shrink grid-cols-3 gap-2 overflow-y-auto">
           {cards.map((c) => (
             <button key={c.id} onClick={() => setPicked(c)}
-              className={`rounded-md border bg-white p-1 text-left ${picked?.id === c.id ? "border-[#7a1f2b] ring-2 ring-[#7a1f2b]" : "border-black/20"}`}>
+              className={`rounded-md border bg-white p-1 text-left ${picked?.id === c.id ? "border-[#57030d] ring-2 ring-[#57030d]" : "border-black/20"}`}>
               {c.image_path && <img src={c.image_path} alt="" className="aspect-[3/4] w-full object-cover" />}
               <span className="block truncate font-sans text-[11px]">{c.name}</span>
               <span className="font-sans text-[10px] opacity-60">{rub(c.price_cents)}</span>

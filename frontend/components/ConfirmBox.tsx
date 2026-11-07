@@ -24,9 +24,9 @@ export function ConfirmBox({ token, status }: { token: string; status: string })
 
   if (info.confirmed && info.word) {
     return (
-      <div className="rounded-md border border-[#7a1f2b] p-3">
+      <div className="rounded-md border border-[#57030d] p-3">
         <p className="font-sans text-xs uppercase tracking-wide opacity-60">Пароль для курьера</p>
-        <p className="text-2xl" style={{ color: "#7a1f2b" }}>«{info.word}»</p>
+        <p className="text-2xl" style={{ color: "#57030d" }}>«{info.word}»</p>
         <p className="font-sans text-xs opacity-70">Курьер спросит его при доставке. Если это подарок, передайте пароль получателю.</p>
       </div>
     );
@@ -37,7 +37,7 @@ export function ConfirmBox({ token, status }: { token: string; status: string })
   return (
     <div className="space-y-1">
       <a href={info.url} target="_blank" rel="noopener noreferrer"
-        className="block rounded-full bg-[#7a1f2b] px-5 py-2 text-center font-sans text-[#f4ead6]">
+        className="block rounded-full bg-[#57030d] px-5 py-2 text-center font-sans text-[#f4ead6]">
         Подтвердить в Telegram
       </a>
       <p className="text-center font-sans text-xs opacity-60">без подтверждения заказ отменится через 2 часа</p>

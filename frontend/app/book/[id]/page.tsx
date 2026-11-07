@@ -13,7 +13,7 @@ type Product = {
 };
 type Review = { id: number; product_id: number; author: string; text: string; avg: number; votes: number; plaque: boolean; created_at: string };
 
-const WINE = "#7a1f2b";
+const WINE = "#57030d";
 const CREAM = "#f4ead6";
 const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
 const day = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
@@ -147,7 +147,7 @@ export default function BookPage() {
                 <p className="font-sans text-xs opacity-60">Не о сюжете, а о том, что книга с вами сделала. До 200 знаков.</p>
                 <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={200} rows={3} autoFocus
                   placeholder="Что вы почувствовали?"
-                  className="w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#7a1f2b]" />
+                  className="w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#57030d]" />
                 <div className="flex items-center justify-between font-sans text-sm">
                   <span className="opacity-60">{text.length}/200</span>
                   <button onClick={submit} disabled={text.trim().length < 10}

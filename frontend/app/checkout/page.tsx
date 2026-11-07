@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { setContact, useCart } from "@/lib/cart";
 import { Consents } from "@/components/Consents";
 
-const input = "w-full rounded-md border border-black/20 bg-white px-3 py-2.5 font-sans text-[15px] outline-none focus:border-[#7a1f2b]";
+const input = "w-full rounded-md border border-black/20 bg-white px-3 py-2.5 font-sans text-[15px] outline-none focus:border-[#57030d]";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -83,7 +83,7 @@ export default function CheckoutPage() {
 
       <Consents offer={offerOk} setOffer={setOfferOk} pd={pdOk} setPd={setPdOk} />
       <button onClick={next} disabled={!ready}
-        className="shrink-0 rounded-full bg-[#7a1f2b] px-6 py-3 font-sans text-[#f4ead6] shadow-md disabled:opacity-40">
+        className="shrink-0 rounded-full bg-[#57030d] px-6 py-3 font-sans text-[#f4ead6] shadow-md disabled:opacity-40">
         Дальше
       </button>
     </div>

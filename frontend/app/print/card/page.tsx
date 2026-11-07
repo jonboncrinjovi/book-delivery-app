@@ -9,16 +9,16 @@ import { uploadImage } from "@/lib/upload";
 type PrintProduct = { id: number; name: string; price_cents: number; print_kind: string; print_size: string };
 type Pic = { id: string; url: string };
 
-const WINE = "#7a1f2b";
+const WINE = "#57030d";
 const CREAM = "#f4ead6";
 const SIZES: Record<string, string> = { A6: "10×15 см", A5: "15×21 см", A4: "21×30 см" };
 const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
-const input = "w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#7a1f2b]";
+const input = "w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#57030d]";
 const chosen = (on: boolean) => (on ? { background: WINE, color: CREAM, borderColor: WINE } : { borderColor: "rgba(0,0,0,0.2)" });
 
 export function PicButton({ label, busy, onFile }: { label: string; busy: boolean; onFile: (f: File) => void }) {
   return (
-    <label className="block cursor-pointer rounded-md border border-dashed border-[#7a1f2b] px-3 py-2 text-center font-sans text-sm text-[#7a1f2b]">
+    <label className="block cursor-pointer rounded-md border border-dashed border-[#57030d] px-3 py-2 text-center font-sans text-sm text-[#57030d]">
       {busy ? "Загружаем…" : label}
       <input type="file" accept="image/*" className="hidden" disabled={busy}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
@@ -141,7 +141,7 @@ export default function CardEditor() {
           </>
         )}
         <label className="flex items-start gap-2 font-sans text-xs">
-          <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#7a1f2b]" />
+          <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#57030d]" />
           <span>
             Изображения принадлежат мне или я вправе их использовать. Открытка делается по моему макету и{" "}
             <a href="/legal/delivery" target="_blank" className="underline">не подлежит возврату</a>.

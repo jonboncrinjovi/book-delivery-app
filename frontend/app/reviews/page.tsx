@@ -15,7 +15,7 @@ type Activity = { who: string; book: string; at: string };
 type OrderRef = { id: number; created_at: string };
 type BookHit = { id: number; name: string; author: string | null; cover: string | null };
 
-const WINE = "#7a1f2b";
+const WINE = "#57030d";
 const CREAM = "#f4ead6";
 const KRAFT = "#cdb08a";
 const GOLD = "#b8892d";
@@ -26,7 +26,7 @@ const TEAM_TEXT = "Здесь будет рассказ о команде: кт�
 
 const day = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
 const level = (r: Review) => (r.votes > 0 ? Math.round(r.avg) : 0);
-const input = "w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#7a1f2b]";
+const input = "w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#57030d]";
 
 export default function ReviewsPage() {
   const [tab, setTab] = useState<"books" | "service">("books");

@@ -357,7 +357,7 @@ func wrapPDF(out string, p PrintReq) error {
 	W, H := 297.0, 420.0
 	pdf := newPDF(W, H)
 	pdf.AddPage()
-	pdf.SetTextColor(122, 31, 43)
+	pdf.SetTextColor(87, 3, 13)
 	cols, rows := 3, 5
 	cw, ch := W/float64(cols), H/float64(rows)
 	for r := 0; r < rows; r++ {

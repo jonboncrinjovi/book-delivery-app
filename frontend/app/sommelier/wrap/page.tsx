@@ -48,7 +48,7 @@ export default function WrapPage() {
     router.push("/sommelier/extras");
   }
 
-  const button = "flex-1 rounded-full bg-[#7a1f2b] px-3 py-3 font-sans text-sm text-[#f4ead6] shadow-md transition active:scale-95";
+  const button = "flex-1 rounded-full bg-[#57030d] px-3 py-3 font-sans text-sm text-[#f4ead6] shadow-md transition active:scale-95";
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl bg-[#c9a77a] text-black">

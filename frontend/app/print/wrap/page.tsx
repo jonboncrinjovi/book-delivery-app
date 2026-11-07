@@ -9,10 +9,10 @@ import { PicButton } from "../card/page";
 
 type PrintProduct = { id: number; name: string; price_cents: number; print_kind: string; print_size: string };
 
-const WINE = "#7a1f2b";
+const WINE = "#57030d";
 const CREAM = "#f4ead6";
 const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
-const input = "w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#7a1f2b]";
+const input = "w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#57030d]";
 
 export default function WrapEditor() {
   const router = useRouter();
@@ -78,7 +78,7 @@ export default function WrapEditor() {
         <PicButton label={pic ? "Заменить картинку" : "Загрузить картинку"} busy={busy} onFile={pick} />
         <input value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={80} placeholder="Имя или короткая фраза" className={input} />
         <label className="flex items-start gap-2 font-sans text-xs">
-          <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#7a1f2b]" />
+          <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#57030d]" />
           <span>Изображение принадлежит мне или я вправе его использовать. Упаковка делается по моему макету и не подлежит возврату.</span>
         </label>
         {error && (

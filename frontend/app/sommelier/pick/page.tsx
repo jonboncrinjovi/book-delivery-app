@@ -177,7 +177,7 @@ export default function PickPage() {
         <div className="relative mt-4 shrink-0 rounded-2xl bg-[#efe6d4] px-6 pb-3 pt-8 text-black shadow-md">
           {!revealed && !saved && (
             <button onClick={reveal}
-              className="absolute left-1/2 top-0 flex size-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#7a1f2b] text-lg text-[#f4ead6] shadow-[0_4px_0_rgba(0,0,0,.25)] ring-4 ring-[#7a1f2b]/40 transition active:scale-95">
+              className="absolute left-1/2 top-0 flex size-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#57030d] text-lg text-[#f4ead6] shadow-[0_4px_0_rgba(0,0,0,.25)] ring-4 ring-[#57030d]/40 transition active:scale-95">
               Открыть
             </button>
           )}
@@ -186,12 +186,12 @@ export default function PickPage() {
             <div className="space-y-2 text-center">
               <p className="font-semibold">{revealed ? "На полке." : "На полке, пока что в обёртке."}</p>
               <div className="flex gap-2 font-sans text-sm">
-                <button onClick={next} className="flex-1 rounded-full border border-[#7a1f2b] px-3 py-2 text-[#7a1f2b]">Подобрать ещё</button>
-                <button onClick={orderNow} className="flex-1 rounded-full bg-[#7a1f2b] px-3 py-2 text-[#f4ead6]">Оформить сейчас</button>
+                <button onClick={next} className="flex-1 rounded-full border border-[#57030d] px-3 py-2 text-[#57030d]">Подобрать ещё</button>
+                <button onClick={orderNow} className="flex-1 rounded-full bg-[#57030d] px-3 py-2 text-[#f4ead6]">Оформить сейчас</button>
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between text-[#7a1f2b]">
+            <div className="flex items-center justify-between text-[#57030d]">
               <button onClick={() => swipe.current?.fling(-1)} aria-label="Другую книгу">{refreshIcon}</button>
               <div className="min-w-0 px-2 text-center">
                 {revealed ? (
@@ -208,7 +208,7 @@ export default function PickPage() {
           )}
 
           {revealed && !saved && (
-            <button onClick={markRead} className="mt-1 block w-full text-center font-sans text-xs text-[#7a1f2b] underline">
+            <button onClick={markRead} className="mt-1 block w-full text-center font-sans text-xs text-[#57030d] underline">
               Уже читал, не предлагать
             </button>
           )}

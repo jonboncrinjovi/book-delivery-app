@@ -57,7 +57,7 @@ function PairStep({ bookId, category, onDone }: { bookId: number; category: Pair
       .catch(() => setEmpty(true));
   }, [bookId, category, excluded]);
 
-  const button = "rounded-full bg-[#7a1f2b] px-2 py-3 font-sans text-sm text-[#f4ead6] shadow-md transition active:scale-95 disabled:opacity-40";
+  const button = "rounded-full bg-[#57030d] px-2 py-3 font-sans text-sm text-[#f4ead6] shadow-md transition active:scale-95 disabled:opacity-40";
 
   return (
     // the kraft sheet, with optional ink ornaments in two corners

@@ -16,7 +16,7 @@ type Track = {
   events: { status: string; at: string }[];
 };
 
-const WINE = "#7a1f2b";
+const WINE = "#57030d";
 const CREAM = "#f4ead6";
 
 // every status in the order an order goes through; a step counts as reached once the order gets there
@@ -140,7 +140,7 @@ export default function TrackPage() {
               </div>
               {next && (
                 <div className="h-5 w-[2px] transition-colors duration-500"
-                  style={{ background: reached(next.status) ? WINE : "rgba(122,31,43,0.3)" }} />
+                  style={{ background: reached(next.status) ? WINE : "rgba(87,3,13,0.3)" }} />
               )}
             </div>
           );

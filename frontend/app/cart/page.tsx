@@ -154,22 +154,22 @@ export default function OrderPage() {
         ))}
       </ul>
 
-      <Link href="/sommelier/wrap" className="shrink-0 rounded-md bg-[#7a1f2b] px-4 py-2 text-[#f4ead6]">
+      <Link href="/sommelier/wrap" className="shrink-0 rounded-md bg-[#57030d] px-4 py-2 text-[#f4ead6]">
         Упаковка: {packaging}
       </Link>
 
-      <div className="flex shrink-0 gap-2 font-sans text-xs"><Link href="/print/card" className="flex-1 rounded-md border border-[#7a1f2b] px-2 py-1.5 text-center text-[#7a1f2b]">+ своя открытка</Link><Link href="/print/wrap" className="flex-1 rounded-md border border-[#7a1f2b] px-2 py-1.5 text-center text-[#7a1f2b]">+ своя упаковка для цветов</Link></div>
+      <div className="flex shrink-0 gap-2 font-sans text-xs"><Link href="/print/card" className="flex-1 rounded-md border border-[#57030d] px-2 py-1.5 text-center text-[#57030d]">+ своя открытка</Link><Link href="/print/wrap" className="flex-1 rounded-md border border-[#57030d] px-2 py-1.5 text-center text-[#57030d]">+ своя упаковка для цветов</Link></div>
       <Link href="/checkout" className="shrink-0 truncate rounded-md border border-black/30 px-3 py-2 font-sans text-sm">
         {c ? `Адрес: ${c.address}` : "Указать адрес и телефон →"}
       </Link>
 
       <div className="grid shrink-0 grid-cols-2 gap-2 font-sans text-sm">
         <button onClick={() => setExpress(false)}
-          className={`rounded-md border px-3 py-2 ${!express ? "border-[#7a1f2b] bg-[#7a1f2b] text-[#f4ead6]" : "border-black/30"}`}>
+          className={`rounded-md border px-3 py-2 ${!express ? "border-[#57030d] bg-[#57030d] text-[#f4ead6]" : "border-black/30"}`}>
           Обычная{!express && quote ? `: ${quote.delivery_fee_cents === 0 ? "бесплатно" : rub(quote.delivery_fee_cents)}` : ""}
         </button>
         <button onClick={() => setExpress(true)}
-          className={`rounded-md border px-3 py-2 ${express ? "border-[#7a1f2b] bg-[#7a1f2b] text-[#f4ead6]" : "border-black/30"}`}>
+          className={`rounded-md border px-3 py-2 ${express ? "border-[#57030d] bg-[#57030d] text-[#f4ead6]" : "border-black/30"}`}>
           Экспресс 2 ч{express && quote ? `: ${rub(quote.delivery_fee_cents)}` : ""}
         </button>
       </div>
@@ -183,10 +183,10 @@ export default function OrderPage() {
           </p>
         </div>
       )}
-      {error && <p className="shrink-0 font-sans text-sm text-[#7a1f2b]">{error}</p>}
+      {error && <p className="shrink-0 font-sans text-sm text-[#57030d]">{error}</p>}
 
       <button onClick={pay} disabled={!c || !quote || sending}
-        className="shrink-0 rounded-md bg-[#7a1f2b] px-6 py-3 font-sans uppercase tracking-wide text-[#f4ead6] disabled:opacity-40">
+        className="shrink-0 rounded-md bg-[#57030d] px-6 py-3 font-sans uppercase tracking-wide text-[#f4ead6] disabled:opacity-40">
         {sending ? "Оформляем…" : "Оплатить"}
       </button>
       <p className="shrink-0 text-center font-sans text-[10px] opacity-60">
