@@ -81,6 +81,12 @@ func main() {
 
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
+mux.HandleFunc("GET /api/vintorina/today", vtToday(pool))
+mux.HandleFunc("POST /api/vintorina/{id}/start", vtStart(pool))
+mux.HandleFunc("POST /api/vintorina/{id}/hint", vtHint(pool))
+mux.HandleFunc("POST /api/vintorina/{id}/guess", vtGuess(pool))
+mux.HandleFunc("GET /api/vintorina/top", vtTop(pool))
+mux.HandleFunc("PUT /api/vintorina/profile", vtProfile(pool))
 	mux.HandleFunc("GET /api/prints", listPrintProducts(pool))
 	mux.HandleFunc("GET /api/uploads/{id}", serveUpload())
 	mux.HandleFunc("POST /api/uploads", uploadImage(pool))
