@@ -14,6 +14,7 @@ const (
 	shopEmail = "info@literalwine.ru"
 	shopPhone = "+7 981 752-84-58"
 	shopHours = "ежедневно с 9:00 до 22:00"
+	shopChannel = "https://t.me/literalwine"
 )
 
 // sendReturnNotice tells the customer how returns work at the moment of delivery (ст. 26.1 ЗоЗПП)
@@ -32,7 +33,7 @@ func sendReturnNotice(pool *pgxpool.Pool, token string, id int64) {
 		"Если с товаром что-то не так, напишите нам, и мы всё исправим.\n\n"+
 		"%s, %s (%s)\nПодробно: https://literalwine.ru/legal/delivery",
 		id, shopEmail, shopPhone, shopHours)
-	if err := tgCall(ctx, token, "sendMessage", map[string]any{"chat_id": *chat, "text": text}, nil); err != nil {
+	if err := tgCall(ctx, token, "sendMessage", map[string]any{"chat_id": *chat, "text": text, "reply_markup": map[string]any{"inline_keyboard": [][]map[string]string{{{"text": "Наш канал: книги и новости", "url": shopChannel}}}}}, nil); err != nil {
 		log.Printf("bot: return notice %d: %v", id, err)
 		return
 	}

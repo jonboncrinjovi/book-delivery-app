@@ -47,7 +47,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </div>
         </main>
 
-        <p className="shrink-0 pb-1 text-center font-sans text-[10px] text-on-chrome opacity-70"><Link href="/legal">Документы и реквизиты</Link></p>
+        <p className="shrink-0 pb-1 text-center font-sans text-[10px] text-on-chrome opacity-70"><Link href="/legal">Документы и реквизиты</Link> · <a href="https://t.me/literalwine" target="_blank" rel="noopener noreferrer">Наш Telegram</a></p>
         <BottomNav />
       </body>
     </html>

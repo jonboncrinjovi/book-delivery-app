@@ -328,7 +328,7 @@ func cardPDF(out, size string, p PrintReq) error {
 	pdf.ImageOptions(filepath.Join(printsDir, "logo.png"), (pw-lw)/2, H*0.6, lw, 0, false, fpdf.ImageOptions{ImageType: "PNG"}, 0, "")
 	pdf.SetFont("serif", "", 8*k)
 	pdf.SetXY(0, H*0.6+lw+2*k)
-	pdf.CellFormat(pw, 5*k, "literalwine.ru", "", 0, "C", false, 0, "")
+	pdf.CellFormat(pw, 5*k, "literalwine.ru · t.me/literalwine", "", 0, "C", false, 0, "")
 	capH := 0.0
 	if p.Caption != "" {
 		capH = H * 0.15

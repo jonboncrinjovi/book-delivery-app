@@ -164,7 +164,7 @@ func handleConfirm(ctx context.Context, pool *pgxpool.Pool, token string, owner 
 	if m := cq.Message; m != nil {
 		if err := tgCall(ctx, token, "editMessageText", map[string]any{
 			"chat_id": m.Chat.ID, "message_id": m.MessageID, "text": m.Text + done,
-			"reply_markup": map[string]any{"inline_keyboard": [][]map[string]string{}},
+			"reply_markup": map[string]any{"inline_keyboard": [][]map[string]string{{{"text": "Наш канал: книги и новости", "url": shopChannel}}}},
 		}, nil); err != nil {
 			log.Printf("bot: confirm edit: %v", err)
 		}
