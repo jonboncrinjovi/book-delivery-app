@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GRAPE_NAMES, GrapeRow } from "@/components/GrapeRow";
 import { Disclaimer } from "@/components/Disclaimer";
+import { useV } from "@/lib/address";
 
 type Review = {
   id: number; product_id: number; book: string; author: string; text: string;
@@ -105,6 +106,7 @@ function BookReviews() {
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
+  const v = useV();
 
   const load = useCallback(() => {
     fetch("/api/reviews").then((r) => r.json()).then(setReviews).catch(() => {});
@@ -119,7 +121,7 @@ function BookReviews() {
       body: JSON.stringify({ grapes: value }),
     });
     if (res.status === 401) {
-      setMessage("Войдите, чтобы оценивать рецензии");
+      setMessage(v("Войдите, чтобы оценивать рецензии", "Войди, чтобы оценивать рецензии"));
       return;
     }
     if (!res.ok) {
@@ -136,7 +138,7 @@ function BookReviews() {
   return (
     <>
       {reviews.length === 0 ? (
-        <p className="flex-1 pt-6 text-center font-sans text-sm opacity-60">Рецензий пока нет. Найдите книгу ниже и напишите первую.</p>
+        <p className="flex-1 pt-6 text-center font-sans text-sm opacity-60">{v("Рецензий пока нет. Найдите книгу ниже и напишите первую.", "Рецензий пока нет. Найди книгу ниже и напиши первую.")}</p>
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-3 grid-rows-3 gap-2">
           {shown.map((r, i) => {
@@ -245,6 +247,7 @@ function ServiceReviews() {
   const [score, setScore] = useState(0);
   const [text, setText] = useState("");
   const [message, setMessage] = useState("");
+  const v = useV();
 
   const load = useCallback(() => {
     fetch("/api/service-reviews").then((r) => r.json()).then(setReviews).catch(() => {});
@@ -283,7 +286,7 @@ function ServiceReviews() {
       </section>
 
       {reviews.length === 0 ? (
-        <p className="px-1 font-sans text-sm opacity-60">Отзывов о доставке пока нет. Ваш может быть первым.</p>
+        <p className="px-1 font-sans text-sm opacity-60">{v("Отзывов о доставке пока нет. Ваш может быть первым.", "Отзывов о доставке пока нет. Твой может быть первым.")}</p>
       ) : (
         <ul className="space-y-2">
           {shown.map((r) => (
@@ -297,7 +300,7 @@ function ServiceReviews() {
       )}
       <Pager page={page} pages={pages} set={setPage} />
 
-      {orders === null && <p className="px-1 font-sans text-sm opacity-60">Войдите в профиле, чтобы оставить отзыв о доставке.</p>}
+      {orders === null && <p className="px-1 font-sans text-sm opacity-60">{v("Войдите в профиле, чтобы оставить отзыв о доставке.", "Войди в профиле, чтобы оставить отзыв о доставке.")}</p>}
       {orders !== null && orders.length > 0 && !writing && (
         <button onClick={() => setWriting(true)} className="w-full rounded-md py-2 font-sans shadow-md" style={{ background: WINE, color: CREAM }}>
           Оставить отзыв о доставке
@@ -319,7 +322,7 @@ function ServiceReviews() {
             ))}
           </div>
           <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={300} rows={4}
-            placeholder="Расскажите, как всё прошло" className={input} />
+            placeholder={v("Расскажите, как всё прошло", "Расскажи, как всё прошло")} className={input} />
           <div className="flex items-center justify-between font-sans text-sm">
             <span className="opacity-60">{text.length}/300</span>
             <button onClick={submit} disabled={order === "" || score === 0 || text.trim().length < 10}

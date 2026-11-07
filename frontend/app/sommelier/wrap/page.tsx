@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { setPackaging, useCart } from "@/lib/cart";
+import { useV } from "@/lib/address";
 
 type BagColor = { code: string; name: string; hex: string };
 type BoxSize = { code: string; name: string; capacity_slots: number | null; price_cents: number };
@@ -29,6 +30,7 @@ export default function WrapPage() {
   const cart = useCart();
   const [colors, setColors] = useState<BagColor[]>([]);
   const [boxes, setBoxes] = useState<BoxSize[]>([]);
+  const v = useV();
 
   useEffect(() => {
     fetch("/api/bag-colors").then((r) => r.json()).then(setColors).catch(() => {});
@@ -56,13 +58,13 @@ export default function WrapPage() {
       <div className="flex min-h-0 flex-1 items-center gap-2 bg-contain bg-right bg-no-repeat p-5"
         style={{ backgroundImage: `url(/wrap/${blind ? "parcel" : "bags"}.png)`, backgroundSize: "auto 75%" }}>
         <h1 className="max-w-[55%] text-3xl leading-tight">
-          {blind ? "Итак, у Вас свидание вслепую. Как волнительно!" : "Ваш заказ почти готов. Во что упакуем?"}
+          {blind ? v("Итак, у Вас свидание вслепую. Как волнительно!", "Итак, у тебя свидание вслепую. Как волнительно!") : v("Ваш заказ почти готов. Во что упакуем?", "Твой заказ почти готов. Во что упакуем?")}
         </h1>
       </div>
 
       {/* bottom: the torn paper with the bags */}
       <div className="shrink-0 bg-[#f4ead6] px-4 pb-4 pt-7" style={{ clipPath: TORN }}>
-        <p className="text-center text-lg">Подберите цвет пакета под ваш заказ!</p>
+        <p className="text-center text-lg">{v("Подберите цвет пакета под Ваш заказ!", "Подбери цвет пакета под свой заказ!")}</p>
         <div className="mt-3 flex gap-2">
           {colors.map((c) => <Bag key={c.code} c={c} onClick={() => choose("BAG", c.code)} />)}
         </div>

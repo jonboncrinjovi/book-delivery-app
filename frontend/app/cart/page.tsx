@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Disclaimer } from "@/components/Disclaimer";
 import { useRouter } from "next/navigation";
 import { clearCart, setQty, useCart, type CartItem } from "@/lib/cart";
+import { useV } from "@/lib/address";
 
 type Quote = { subtotal_cents: number; delivery_fee_cents: number; total_cents: number; deliver_by: string; geocoded: boolean };
 type BagColor = { code: string; name: string };
@@ -41,6 +42,7 @@ export default function OrderPage() {
   const [colors, setColors] = useState<BagColor[]>([]);
   const [boxes, setBoxes] = useState<BoxSize[]>([]);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const v = useV();
 
   useEffect(() => {
     fetch("/api/bag-colors").then((r) => r.json()).then(setColors).catch(() => {});
@@ -136,7 +138,7 @@ export default function OrderPage() {
 
   return (
     <div className="flex h-full flex-col gap-2 overflow-hidden rounded-xl bg-[#f4ead6] p-4 text-black">
-      <h1 className="shrink-0 text-3xl">Ваш заказ</h1>
+      <h1 className="shrink-0 text-3xl">{v("Ваш заказ", "Твой заказ")}</h1>
 
       {/* the lines with pictures; only this list scrolls, if it ever gets long */}
       <ul className="min-h-0 flex-1 divide-y divide-black/10 overflow-y-auto">
@@ -190,7 +192,7 @@ export default function OrderPage() {
         {sending ? "Оформляем…" : "Оплатить"}
       </button>
       <p className="shrink-0 text-center font-sans text-[10px] opacity-60">
-        После оформления подтвердите заказ в Telegram: без подтверждения он отменится через 2 часа.<Disclaimer />
+        {v("После оформления подтвердите заказ в Telegram: без подтверждения он отменится через 2 часа.", "После оформления подтверди заказ в Telegram: без подтверждения он отменится через 2 часа.")}<Disclaimer />
       </p>
     </div>
   );

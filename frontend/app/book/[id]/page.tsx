@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { addItem } from "@/lib/cart";
 import { GRAPE_NAMES, GrapeRow } from "@/components/GrapeRow";
 import { Disclaimer } from "@/components/Disclaimer";
+import { useV } from "@/lib/address";
 
 type Product = {
   id: number; name: string; author: string | null; description: string; hook: string;
@@ -30,6 +31,7 @@ export default function BookPage() {
   const [text, setText] = useState("");
   const [message, setMessage] = useState("");
   const [added, setAdded] = useState(false);
+  const v = useV();
   const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -144,9 +146,9 @@ export default function BookPage() {
             )}
             {writing && (
               <div ref={formRef} className="mt-4 space-y-2">
-                <p className="font-sans text-xs opacity-60">Не о сюжете, а о том, что книга с вами сделала. До 200 знаков.</p>
+                <p className="font-sans text-xs opacity-60">{v("Не о сюжете, а о том, что книга с Вами сделала. До 200 знаков.", "Не о сюжете, а о том, что книга с тобой сделала. До 200 знаков.")}</p>
                 <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={200} rows={3} autoFocus
-                  placeholder="Что вы почувствовали?"
+                  placeholder="Что осталось после чтения?"
                   className="w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#57030d]" />
                 <div className="flex items-center justify-between font-sans text-sm">
                   <span className="opacity-60">{text.length}/200</span>

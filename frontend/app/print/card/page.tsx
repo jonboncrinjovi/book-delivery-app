@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { setPrintItem } from "@/lib/cart";
 import { uploadImage } from "@/lib/upload";
+import { useV } from "@/lib/address";
 
 type PrintProduct = { id: number; name: string; price_cents: number; print_kind: string; print_size: string };
 type Pic = { id: string; url: string };
@@ -38,6 +39,7 @@ export default function CardEditor() {
   const [rights, setRights] = useState(false);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const v = useV();
 
   useEffect(() => {
     fetch("/api/prints").then((r) => r.json()).then(setProducts).catch(() => {});
@@ -102,7 +104,7 @@ export default function CardEditor() {
                 )}
               </div>
               <div className={`${panel} flex items-center justify-center p-[8%]`}>
-                <p className="whitespace-pre-line text-center text-[10px] italic leading-snug">{body || "Ваш текст"}</p>
+                <p className="whitespace-pre-line text-center text-[10px] italic leading-snug">{body || v("Ваш текст", "Твой текст")}</p>
               </div>
             </>
           )}
@@ -136,7 +138,7 @@ export default function CardEditor() {
           <>
             <PicButton label={inner ? "Заменить картинку" : "Картинка слева (необязательно)"} busy={busy === "inner"} onFile={(f) => pick("inner", f)} />
             {inner && <button onClick={() => setInner(null)} className="font-sans text-xs underline opacity-60">Убрать картинку</button>}
-            <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={600} rows={5} placeholder="Ваш текст" className={input} />
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={600} rows={5} placeholder={v("Ваш текст", "Твой текст")} className={input} />
             <p className="text-right font-sans text-xs opacity-60">{body.length}/600</p>
           </>
         )}

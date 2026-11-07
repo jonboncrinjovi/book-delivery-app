@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useV } from "@/lib/address";
 
 type Info = { confirmed: boolean; word: string | null; url: string | null };
 
 // the Telegram confirmation on the tracking page: the button before, the password after
 export function ConfirmBox({ token, status }: { token: string; status: string }) {
   const [info, setInfo] = useState<Info | null>(null);
+  const v = useV();
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
@@ -27,7 +29,7 @@ export function ConfirmBox({ token, status }: { token: string; status: string })
       <div className="rounded-md border border-[#57030d] p-3">
         <p className="font-sans text-xs uppercase tracking-wide opacity-60">Пароль для курьера</p>
         <p className="text-2xl" style={{ color: "#57030d" }}>«{info.word}»</p>
-        <p className="font-sans text-xs opacity-70">Курьер спросит его при доставке. Если это подарок, передайте пароль получателю.</p>
+        <p className="font-sans text-xs opacity-70">{v("Курьер спросит его при доставке. Если это подарок, передайте пароль получателю.", "Курьер спросит его при доставке. Если это подарок, передай пароль получателю.")}</p>
       </div>
     );
   }

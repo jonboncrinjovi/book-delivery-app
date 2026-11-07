@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useV } from "@/lib/address";
 
 type Tag = { id: number; name: string; children?: Tag[] };
 type StormWord = { key: number; tag: Tag; size: number; x: number; y: number; rot: number; delay: number };
@@ -48,6 +49,7 @@ export default function TagsPage() {
   const [chosen, setChosen] = useState<number[]>([]);
   const [overlay, setOverlay] = useState<"anchors" | "storm" | null>(null);
   const [storm, setStorm] = useState<StormWord[]>([]);
+  const v = useV();
 
   useEffect(() => {
     fetch("/api/tags").then((r) => r.json()).then(setAnchors).catch(() => {});
@@ -95,7 +97,7 @@ export default function TagsPage() {
         style={{ backgroundImage: "url(/sommelier/book.png)" }} />
 
       <p className="shrink-0 text-center text-lg">
-        {anchor ? "Добавьте оттенков или сразу задавайте." : "С чего начнём? Нажмите на плюс."}
+        {anchor ? v("Добавьте оттенков или сразу задавайте.", "Добавь оттенков или сразу задавай.") : v("С чего начнём? Нажмите на плюс.", "С чего начнём? Нажми на плюс.")}
       </p>
 
       {/* the row of tags */}

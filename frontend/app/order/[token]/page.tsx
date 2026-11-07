@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useV } from "@/lib/address";
 import { ConfirmBox } from "@/components/ConfirmBox";
 
 type Track = {
@@ -82,6 +83,7 @@ export default function TrackPage() {
   const { token } = useParams<{ token: string }>();
   const [order, setOrder] = useState<Track | null>(null);
   const [missing, setMissing] = useState(false);
+  const v = useV();
 
   // load now, then every 30 seconds until the order reaches a final state
   useEffect(() => {
@@ -119,7 +121,7 @@ export default function TrackPage() {
   return (
     <div className="flex h-full flex-col items-center gap-4 overflow-hidden rounded-xl bg-[#cdb08a] p-4 text-black">
       <h1 className="shrink-0 rounded-md px-4 py-1 text-2xl shadow-md" style={{ background: WINE, color: CREAM }}>
-        Статус Вашего заказа:
+        {v("Статус Вашего заказа:", "Статус твоего заказа:")}
       </h1>
 
       {/* the progress column */}
@@ -152,14 +154,14 @@ export default function TrackPage() {
         {cancelled ? (
           <div className="space-y-3">
             <p className="text-xl" style={{ color: WINE }}>Заказ отменён</p>
-            <p className="font-sans text-sm opacity-70">Если это ошибка, напишите нам, и мы всё исправим.</p>
+            <p className="font-sans text-sm opacity-70">{v("Если это ошибка, напишите нам, и мы всё исправим.", "Если это ошибка, напиши нам, и мы всё исправим.")}</p>
             <Link href="/sommelier" className="inline-block rounded-full px-5 py-2 font-sans text-sm" style={{ background: WINE, color: CREAM }}>
               К сомелье
             </Link>
           </div>
         ) : order.status === "delivered" ? (
           <div className="flex h-full flex-col">
-            <p className="text-xl" style={{ color: WINE }}>Будем рады видеть Вас снова!</p>
+            <p className="text-xl" style={{ color: WINE }}>{v("Будем рады видеть Вас снова!", "Будем рады видеть тебя снова!")}</p>
             <img src="/track/farewell.png" alt="" className="min-h-0 flex-1 object-contain"
               onError={(e) => (e.currentTarget.style.display = "none")} />
             <Link href="/reviews" className="mt-2 self-start rounded-full px-5 py-2 font-sans text-sm" style={{ background: WINE, color: CREAM }}>
@@ -170,10 +172,10 @@ export default function TrackPage() {
           <div className="space-y-2">
             <ConfirmBox token={token} status={order.status} />
             {order.status === "awaiting_payment" && (
-              <p className="font-sans text-sm" style={{ color: WINE }}>Подтвердите заказ в Telegram, и мы начнём его собирать.</p>
+              <p className="font-sans text-sm" style={{ color: WINE }}>{v("Подтвердите заказ в Telegram, и мы начнём его собирать.", "Подтверди заказ в Telegram, и мы начнём его собирать.")}</p>
             )}
             {order.status === "awaiting_quote" && (
-              <p className="font-sans text-sm" style={{ color: WINE }}>Считаем стоимость упаковки и напишем вам в Telegram.</p>
+              <p className="font-sans text-sm" style={{ color: WINE }}>{v("Считаем стоимость упаковки и напишем Вам в Telegram.", "Считаем стоимость упаковки и напишем тебе в Telegram.")}</p>
             )}
             <p className="text-lg">
               Привезём до: <span className="font-semibold">{when(order.deliver_by)}</span>

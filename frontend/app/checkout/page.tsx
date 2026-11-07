@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { setContact, useCart } from "@/lib/cart";
 import { Consents } from "@/components/Consents";
+import { useV } from "@/lib/address";
 
 const input = "w-full rounded-md border border-black/20 bg-white px-3 py-2.5 font-sans text-[15px] outline-none focus:border-[#57030d]";
 
@@ -22,6 +23,7 @@ export default function CheckoutPage() {
   const [comment, setComment] = useState("");
   const [offerOk, setOfferOk] = useState(false);
   const [pdOk, setPdOk] = useState(false);
+  const v = useV();
 
   // pre-fill: what's in the cart from last time, otherwise the account
   useEffect(() => {
@@ -64,7 +66,7 @@ export default function CheckoutPage() {
 
       {/* the form scrolls inside itself if a phone keyboard squeezes the screen */}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-        <p className="pt-1 font-sans text-xs uppercase tracking-wide opacity-60">{gift ? "Вы" : "Получатель"}</p>
+        <p className="pt-1 font-sans text-xs uppercase tracking-wide opacity-60">{gift ? v("Вы", "Ты") : "Получатель"}</p>
         <input className={input} placeholder="Имя" value={name} onChange={(e) => setName(e.target.value)} />
         <input className={input} placeholder="Телефон" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
 

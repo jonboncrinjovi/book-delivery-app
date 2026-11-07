@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { addItem } from "@/lib/cart";
 import { addToShelf } from "@/lib/shelf";
+import { useV } from "@/lib/address";
 
 type Magi = { text: string; author: string; grapes: number; plaque: boolean; quote: boolean };
 type Masked = { id: number; price_cents: number; cover_blur: string | null; hints: string[]; tags: string[]; magi: Magi[] };
@@ -69,6 +70,7 @@ export default function PickPage() {
   const [seen, setSeen] = useState<number[]>([]);
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false); // ♥ pressed: offer "ещё" or "оформить"
+  const v = useV();
 
   async function pick(exclude: number[]) {
     setRevealed(null);
@@ -84,7 +86,7 @@ export default function PickPage() {
       setCard(await res.json());
       setMessage("");
     } catch {
-      setMessage("Что-то пошло не так, попробуйте ещё раз");
+      setMessage(v("Что-то пошло не так, попробуйте ещё раз", "Что-то пошло не так, попробуй ещё раз"));
     }
   }
 
@@ -134,7 +136,7 @@ export default function PickPage() {
       body: JSON.stringify({ product_id: card.id }),
     });
     if (res.status === 401) {
-      setMessage("Войдите в профиле, и сомелье запомнит прочитанное");
+      setMessage(v("Войдите в профиле, и сомелье запомнит прочитанное", "Войди в профиле, и сомелье запомнит прочитанное"));
       return;
     }
     swipe.current?.fling(-1);
@@ -209,7 +211,7 @@ export default function PickPage() {
 
           {revealed && !saved && (
             <button onClick={markRead} className="mt-1 block w-full text-center font-sans text-xs text-[#57030d] underline">
-              Уже читал, не предлагать
+              Уже прочитано, не предлагать
             </button>
           )}
         </div>
