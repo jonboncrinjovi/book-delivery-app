@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ButlerHero from "@/components/ButlerHero";
+import { setAddress, useAddressChoice, useV } from "@/lib/address";
 
 type Today = { greeting: string; weekday: string; temp_c: number | null; sky: string; fact: string };
 type Question = { q: string; options: string[]; answer: number };
@@ -52,12 +53,33 @@ function Quiz({ q, picked, onPick }: { q: Question; picked: number | null; onPic
   );
 }
 
+// the butler's question, in the same place and style as the warm-up
+function AddressPick() {
+  return (
+    <div className="flex h-full flex-col justify-center gap-2 rounded-xl border-2 border-black bg-[#f4ead6] p-3 text-black shadow-lg">
+      <p className="font-sans text-[10px] uppercase tracking-wide opacity-60">Обращение</p>
+      {(["vy", "ty"] as const).map((f) => (
+        <button key={f} onClick={() => setAddress(f)}
+          className="rounded-md border-2 border-black px-2 py-2 text-lg leading-tight active:bg-black active:text-[#f4ead6]">
+          {f === "vy" ? "На «Вы»" : "На «ты»"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function Welcome() {
   const [today, setToday] = useState<Today | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [done, setDone] = useState(false);
   const [q, setQ] = useState<Question | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
+  const choice = useAddressChoice();
+  const v = useV();
+  // true once he has asked during this visit: then he acknowledges the answer instead of introducing himself again
+  const [asked, setAsked] = useState(false);
+  // the answer card appears only once he has reached the question
+  const [atQuestion, setAtQuestion] = useState(false);
 
   useEffect(() => {
     setQ(quiz[Math.floor(Math.random() * quiz.length)]);
@@ -68,39 +90,70 @@ export default function Welcome() {
       .finally(() => setLoaded(true));
   }, []);
 
-  const monologue = [
-    `${today?.greeting ?? "Добрый день"}! Позвольте представиться: Книжный сомелье.`,
+  // decided only after loading: by then the cookie has been read, so returning guests aren't asked again
+  useEffect(() => {
+    if (loaded && choice === null) setAsked(true);
+  }, [loaded, choice]);
+
+  const greeting = today?.greeting ?? "Добрый день";
+  const introduction = v(`${greeting}! Позвольте представиться: Книжный сомелье.`, `${greeting}! Разреши представиться: Книжный сомелье.`);
+
+  // first visit: he introduces himself and asks, and the conversation waits for the answer
+  if (loaded && choice === null) {
+    return (
+      <Layout today={today}>
+        <ButlerHero key="ask"
+          lines={[`${greeting}! Позвольте представиться: Книжный сомелье.`, "Прежде чем продолжим: как к Вам обращаться, на «Вы» или на «ты»?"]}
+          onDone={() => setAtQuestion(true)}
+          overlay={atQuestion ? <AddressPick /> : null} />
+      </Layout>
+    );
+  }
+
+  const rest = [
     "Единственный во всём Санкт-Петербурге. И, признаюсь, я этим очень горжусь.",
     today ? `${lovely[today.weekday] ?? "Чудесный"} ${today.weekday}, не правда ли?` : null,
     today && today.temp_c !== null
       ? `За окном ${temp(today.temp_c)}${today.sky ? `, ${today.sky}` : ""}: ${weatherQuip(today.sky)}.`
       : null,
-    today?.fact ? `Кстати, ${today.fact}.` : "Кстати, сегодня прекрасный день, чтобы начать книгу, которую вы давно откладывали.",
-    "Правила дома просты: вы говорите, для кого и под какое настроение…",
-    "…а я подбираю книгу. Можно вслепую: узнаете её только при получении.",
+    today?.fact ? `Кстати, ${today.fact}.` : "Кстати, сегодня прекрасный день, чтобы начать книгу, которую давно хотелось прочитать.",
+    v("Правила дома просты: Вы говорите, для кого и под какое настроение…", "Правила дома просты: ты говоришь, для кого и под какое настроение…"),
+    v("…а я подбираю книгу. Можно вслепую: узнаете её только при получении.", "…а я подбираю книгу. Можно вслепую: узнаешь её только при получении."),
     "К книге найдутся напиток, закуска и цветы. Тапочки приветствуются.",
-    "Готовы? Жмите большую кнопку с моим портретом внизу экрана.",
-    "А если точно знаете, что ищете, поиск ниже в вашем полном распоряжении.",
-  ].filter((l): l is string => Boolean(l));
+    v("Начнём? Жмите большую кнопку с моим портретом внизу экрана.", "Начнём? Жми большую кнопку с моим портретом внизу экрана."),
+    v("А если точно знаете, что ищете, поиск ниже в Вашем полном распоряжении.", "А если точно знаешь, что ищешь, поиск ниже в твоём полном распоряжении."),
+  ];
+  const opening = asked
+    ? v("Очень приятно с Вами познакомиться.", "Договорились, на «ты»! Так даже уютнее.")
+    : introduction;
+  const monologue = [opening, ...rest].filter((l): l is string => Boolean(l));
 
   const reaction =
     q && picked !== null
       ? picked === q.answer
-        ? "Браво. Вы определённо по адресу."
+        ? v("Браво. Вы определённо по адресу.", "Браво. Ты определённо по адресу.")
         : `Почти. Правильно: «${q.options[q.answer]}». Гостям такое прощается.`
       : null;
   const lines = reaction ? [...monologue, reaction] : monologue;
 
   return (
+    <Layout today={today}>
+      {/* the key restarts his speech from the first line once the choice is made */}
+      <ButlerHero key={asked ? `after-${choice}` : "normal"}
+        lines={loaded ? lines : []}
+        onDone={() => setDone(true)}
+        overlay={done && q ? <Quiz q={q} picked={picked} onPick={setPicked} /> : null}
+      />
+    </Layout>
+  );
+}
+
+// the frame around the butler: his picture, the search, the weather credit
+function Layout({ today, children }: { today: Today | null; children: React.ReactNode }) {
+  return (
     // h-full: exactly the card's height. The picture takes whatever the search row leaves.
     <div className="flex h-full flex-col gap-2">
-      <div className="min-h-0 flex-1">
-        <ButlerHero
-          lines={loaded ? lines : []}
-          onDone={() => setDone(true)}
-          overlay={done && q ? <Quiz q={q} picked={picked} onPick={setPicked} /> : null}
-        />
-      </div>
+      <div className="min-h-0 flex-1">{children}</div>
 
       <form action="/search" className="flex shrink-0 overflow-hidden rounded-2xl border border-line bg-paper-2">
         <input name="q" type="search" placeholder="Достоевский, «цветы», «к чаю»…"

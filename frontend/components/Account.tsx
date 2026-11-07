@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import TelegramLogin from "@/components/TelegramLogin";
+import { setAddress, useAddressChoice, useV } from "@/lib/address";
 
 type Tag = { id: number; name: string; children?: Tag[] };
 type ReadBook = { id: number; name: string; author: string | null; source: string; confirmed: boolean };
@@ -27,6 +28,8 @@ export default function Account({ bot }: { bot: string }) {
   const [fav, setFav] = useState<number[]>([]);
   const [blocked, setBlocked] = useState<number[]>([]);
   const [saved, setSaved] = useState("");
+  const v = useV();
+  const form = useAddressChoice();
 
   useEffect(() => {
     // the session cookie travels with this request automatically (same site)
@@ -53,7 +56,7 @@ export default function Account({ bot }: { bot: string }) {
       <div className="pt-10 text-center">
         <h1 className="text-3xl font-bold">Войти</h1>
         <p className="mx-auto mt-2 max-w-xs font-sans text-sm text-muted">
-          Через Telegram, в одно касание. Сомелье запомнит, что ты любишь и что уже прочитано.
+          Через Telegram, в одно касание. {v("Сомелье запомнит, что Вы любите и что уже прочитано.", "Сомелье запомнит, что ты любишь и что уже прочитано.")}
         </p>
         <div className="mt-6"><TelegramLogin bot={bot} /></div>
       </div>
@@ -118,10 +121,11 @@ export default function Account({ bot }: { bot: string }) {
         <button onClick={logout} className="font-sans text-sm text-muted underline">Выйти</button>
       </div>
 
+      <div className="mt-6 flex items-center justify-between font-sans text-sm"><span className="text-muted">Обращение</span><div className="flex gap-2">{(["vy", "ty"] as const).map((f) => <button key={f} onClick={() => setAddress(f)} className={`rounded-full border px-3 py-1 ${(form ?? "vy") === f ? "border-wine bg-wine text-paper-2" : "border-line bg-paper-2"}`}>{f === "vy" ? "на «Вы»" : "на «ты»"}</button>)}</div></div>
       <h2 className="mt-8 text-xl font-bold">О себе</h2>
       <textarea value={about} maxLength={200} rows={3}
         onChange={(e) => { setAbout(e.target.value); setSaved(""); }}
-        placeholder="Что читаешь, что любишь, что тебя трогает"
+        placeholder={v("Что читаете, что любите, что Вас трогает", "Что читаешь, что любишь, что тебя трогает")}
         className="mt-2 w-full rounded-2xl border border-line bg-paper-2 p-4 font-sans outline-none focus:border-wine" />
       <p className="text-right font-sans text-xs text-muted">{about.length}/200</p>
 
@@ -144,7 +148,7 @@ export default function Account({ bot }: { bot: string }) {
 
       <h2 className="mt-10 text-xl font-bold">Прочитано</h2>
       {user.reads.length === 0 ? (
-        <p className="mt-2 font-sans text-sm text-muted">Пока пусто. Отмечай прочитанное у сомелье.</p>
+        <p className="mt-2 font-sans text-sm text-muted">{v("Пока пусто. Отмечайте прочитанное у сомелье.", "Пока пусто. Отмечай прочитанное у сомелье.")}</p>
       ) : (
         <ul className="mt-3 divide-y divide-line rounded-2xl border border-line bg-paper-2">
           {user.reads.map((b) => (
