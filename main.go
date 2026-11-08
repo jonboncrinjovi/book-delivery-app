@@ -81,6 +81,12 @@ func main() {
 
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
+    mux.HandleFunc("GET /api/obzor/current", obzorCurrent(pool))
+    mux.HandleFunc("GET /api/obzor/archive", obzorArchive(pool))
+    mux.HandleFunc("GET /api/obzor/{id}", obzorGet(pool))
+    mux.HandleFunc("POST /api/obzor/{id}/vote", obzorVote(pool))
+    mux.HandleFunc("GET /api/obzor/{id}/comments", obzorComments(pool))
+    mux.HandleFunc("POST /api/obzor/{id}/comments", addObzorComment(pool))
 mux.HandleFunc("GET /api/razvin/today", razvinToday(pool))
 mux.HandleFunc("POST /api/razvin/tap", razvinTap(pool))
 mux.HandleFunc("GET /api/bukvin/today", bkToday(pool))

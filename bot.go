@@ -215,6 +215,9 @@ func handleCallback(pool *pgxpool.Pool, token string, owner int64, cq *tgCallbac
 		answer(reviewLabels[action])
 		edit(reviewLabels[action], map[string]any{"inline_keyboard": [][]map[string]string{}}) // decided: no more buttons
 
+	case "oc": // comments in the archive of «Литературный обзор»
+		moderateObzorComment(ctx, pool, id, parts[2], answer, edit)
+
 	default:
 		answer("?")
 	}

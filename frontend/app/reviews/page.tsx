@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GRAPE_NAMES, GrapeRow } from "@/components/GrapeRow";
 import { Disclaimer } from "@/components/Disclaimer";
+import Obzor from "@/components/Obzor";
 import { useV } from "@/lib/address";
 
 type Review = {
@@ -30,21 +31,21 @@ const level = (r: Review) => (r.votes > 0 ? Math.round(r.avg) : 0);
 const input = "w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#57030d]";
 
 export default function ReviewsPage() {
-  const [tab, setTab] = useState<"books" | "service">("books");
+  const [tab, setTab] = useState<"books" | "service" | "obzor">("books");
   return (
     <div className="flex h-full flex-col gap-3 overflow-hidden rounded-xl bg-[#e9e2d3] p-3 text-black">
       <Ticker />
       <div className="grid shrink-0 grid-cols-2 gap-3">
-        {(["books", "service"] as const).map((t) => (
+        {(["books", "service", "obzor"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`rounded-md py-2 text-lg shadow-md transition-opacity ${tab === t ? "" : "opacity-60"}`}
+            className={`rounded-md py-2 text-lg shadow-md transition-opacity ${t === "obzor" ? "col-span-2" : ""} ${tab === t ? "" : "opacity-60"}`}
             style={{ background: WINE, color: CREAM }}>
-            {t === "books" ? "Обзоры книг" : "Обзоры доставок"}
+            {t === "books" ? "Обзоры книг" : t === "service" ? "Обзоры доставок" : "Литературный обзор"}
           </button>
         ))}
       </div>
       <div className="flex min-h-0 flex-1 flex-col">
-        {tab === "books" ? <BookReviews /> : <ServiceReviews />}
+        {tab === "books" ? <BookReviews /> : tab === "obzor" ? <Obzor /> : <ServiceReviews />}
       </div>
     </div>
   );
