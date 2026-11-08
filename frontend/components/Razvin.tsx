@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { GrapeRow } from "@/components/GrapeRow";
 import { plural } from "@/components/Vintorina";
 import { useV } from "@/lib/address";
 
@@ -10,27 +9,19 @@ type Result = { played: boolean; tile: number; prize?: string; name?: string; sc
 
 const WINE = "#57030d";
 const CREAM = "#f4ead6";
-const LEVEL: Record<string, number> = { leaf: 1, blossom: 2, set: 3, ripening: 4, cluster: 5 };
+// prize → picture in public/grapes, and its value (keep in step with razvinPrizes in razvin.go)
+const PRIZES = [
+  { code: "leaf", img: 1, points: 10 },
+  { code: "set", img: 2, points: 30 },
+  { code: "ripening", img: 3, points: 75 },
+  { code: "cluster", img: 4, points: 200 },
+  { code: "gold", img: 5, points: 1000 },
+];
 const kniv = (n: number) => `${n} ${plural(n, ["книвиночка", "книвиночки", "книвиночек"])}`;
 
-// your grape-stage picture if it exists, otherwise the row of berries
-function PrizeArt({ level }: { level: number }) {
-  const [ok, setOk] = useState(true);
-  return ok
-    ? <img src={`/grapes/${level}.png`} alt="" onError={() => setOk(false)} className="size-[70%] object-contain" />
-    : <GrapeRow level={level} size={6} />;
-}
-
-function PrizeIcon({ code }: { code: string }) {
-  if (code === "gold") {
-    return (
-      <div className="flex size-[80%] items-center justify-center rounded-full text-center text-[7px] font-bold leading-tight shadow"
-        style={{ background: "#b8892d", color: CREAM, border: `2px solid ${CREAM}` }}>
-        Золотая<br />лоза
-      </div>
-    );
-  }
-  return <PrizeArt level={LEVEL[code] ?? 1} />;
+function PrizeIcon({ code, className = "size-[75%]" }: { code: string; className?: string }) {
+  const p = PRIZES.find((x) => x.code === code) ?? PRIZES[0];
+  return <img src={`/grapes/${p.img}.png`} alt="" className={`${className} object-contain`} />;
 }
 
 export default function Razvin() {
@@ -96,6 +87,16 @@ export default function Razvin() {
             );
           })}
         </div>
+      </div>
+
+      {/* what can be found, and what it's worth */}
+      <div className="grid shrink-0 grid-cols-5 gap-1">
+        {PRIZES.map((p) => (
+          <div key={p.code} className="flex flex-col items-center">
+            <PrizeIcon code={p.code} className="h-9 w-9" />
+            <span className="font-sans text-[10px]">{p.points}</span>
+          </div>
+        ))}
       </div>
 
       <p className="shrink-0 text-center font-sans text-xs opacity-70">
