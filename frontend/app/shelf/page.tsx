@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ShelfView from "@/components/ShelfView";
-import Vintorina from "@/components/Vintorina";
+import Games from "@/components/Games";
 
 const WINE = "#57030d";
 const CREAM = "#f4ead6";
@@ -20,11 +20,11 @@ export default function ShelfPage() {
           <button key={t} onClick={() => setTab(t)}
             className={`rounded-md py-2 text-lg shadow-md transition-opacity ${tab === t ? "" : "opacity-60"}`}
             style={{ background: WINE, color: CREAM }}>
-            {t === "shelf" ? "Полка" : "Винторина"}
+            {t === "shelf" ? "Полка" : "Игры"}
           </button>
         ))}
       </div>
-      <div className="min-h-0 flex-1">{tab === "shelf" ? <ShelfView /> : <Vintorina />}</div>
+      <div className="min-h-0 flex-1">{tab === "shelf" ? <ShelfView /> : <Games />}</div>
     </div>
   );
 }

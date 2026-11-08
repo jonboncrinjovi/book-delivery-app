@@ -155,6 +155,7 @@ export const DOCS: Doc[] = [
     sections: [
       { title: C.brand, blocks: [`Работаем с 2017 года. Отвечаем ${C.hours}.`] },
       { title: "Реквизиты", blocks: requisites },
+      { title: "Словарь для игры «Буквин»", blocks: ["Проверка слов использует словарь OpenCorpora (opencorpora.org), распространяемый по лицензии CC BY-SA 3.0."] },
     ],
   },
 ];

@@ -81,6 +81,9 @@ func main() {
 
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
+mux.HandleFunc("GET /api/bukvin/today", bkToday(pool))
+mux.HandleFunc("POST /api/bukvin/start", bkStart(pool))
+mux.HandleFunc("POST /api/bukvin/guess", bkGuess(pool))
 mux.HandleFunc("GET /api/vintorina/today", vtToday(pool))
 mux.HandleFunc("POST /api/vintorina/{id}/start", vtStart(pool))
 mux.HandleFunc("POST /api/vintorina/{id}/hint", vtHint(pool))

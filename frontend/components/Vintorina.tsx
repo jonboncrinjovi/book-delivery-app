@@ -45,7 +45,7 @@ export default function Vintorina() {
   );
 }
 
-function Game() {
+export function Game() {
   const v = useV();
   const [puzzles, setPuzzles] = useState<Puzzle[] | null>(null);
   const [guest, setGuest] = useState(false);
@@ -219,7 +219,7 @@ function Round({ p, onChange, onExpire }: { p: Puzzle; onChange: (p: Puzzle) => 
   );
 }
 
-function Top() {
+export function Top() {
   const v = useV();
   const [period, setPeriod] = useState<"day" | "month" | "all">("day");
   const [top, setTop] = useState<TopRow[]>([]);

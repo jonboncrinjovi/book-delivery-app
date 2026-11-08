@@ -406,7 +406,7 @@ func vtTop(pool *pgxpool.Pool) http.HandlerFunc {
 		top := []row{}
 		rows, err := pool.Query(r.Context(), `
 			SELECT u.nickname, SUM(pp.score)::int AS total
-			FROM puzzle_plays pp JOIN users u ON u.id = pp.user_id
+			FROM game_scores pp JOIN users u ON u.id = pp.user_id
 			WHERE u.show_in_top AND u.nickname IS NOT NULL AND pp.finished_at >= $1
 			GROUP BY u.id, u.nickname HAVING SUM(pp.score) > 0
 			ORDER BY total DESC LIMIT 20`, since)
@@ -430,7 +430,7 @@ func vtTop(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 			pool.QueryRow(r.Context(), `
 				SELECT u.nickname, u.show_in_top,
-				       coalesce((SELECT SUM(score) FROM puzzle_plays WHERE user_id = u.id AND finished_at >= $2), 0)::int
+				       coalesce((SELECT SUM(score) FROM game_scores WHERE user_id = u.id AND finished_at >= $2), 0)::int
 				FROM users u WHERE u.id = $1`, uid, since).Scan(&me.Nickname, &me.Show, &me.Total)
 			out["me"] = me
 		}
