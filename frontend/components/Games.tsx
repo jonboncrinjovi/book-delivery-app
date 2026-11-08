@@ -40,6 +40,7 @@ export default function Games() {
       <button onClick={() => setG("top")} className="shrink-0 rounded-md py-2 font-sans text-sm shadow-md" style={{ background: WINE, color: "#f4ead6" }}>
         Рейтинг
       </button>
+      <p className="shrink-0 text-center font-sans text-xs text-muted">10 книвиночек = 1 ₽ скидки на заказ · обмен откроется совсем скоро</p>
     </div>
   );
 }
