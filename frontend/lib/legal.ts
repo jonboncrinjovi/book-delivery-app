@@ -1,4 +1,5 @@
 import { COMPANY as C } from "./company";
+import { GAMES_DOC } from "./legal-games";
 
 // a paragraph is a string; a list is an array of strings
 export type Block = string | string[];
@@ -158,4 +159,5 @@ export const DOCS: Doc[] = [
       { title: "Словарь для игры «Буквин»", blocks: ["Проверка слов использует словарь OpenCorpora (opencorpora.org), распространяемый по лицензии CC BY-SA 3.0."] },
     ],
   },
+  GAMES_DOC,
 ];

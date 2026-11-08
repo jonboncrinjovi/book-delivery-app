@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { Game as VintorinaGame, Top } from "@/components/Vintorina";
 import Bukvin from "@/components/Bukvin";
+import Razvin from "@/components/Razvin";
 
 const WINE = "#57030d";
-type Choice = "vintorina" | "bukvin" | "top" | null;
+type Choice = "vintorina" | "bukvin" | "razvin" | "top" | null;
 
 // «Игры»: three cards in the middle of the screen, like «Для себя / В подарок»; the chosen game opens in their place
 export default function Games() {
@@ -17,6 +18,7 @@ export default function Games() {
         <button onClick={() => setG(null)} className="shrink-0 self-start font-sans text-sm" style={{ color: WINE }}>← Все игры</button>
         {g === "vintorina" && <VintorinaGame />}
         {g === "bukvin" && <Bukvin />}
+        {g === "razvin" && <Razvin />}
         {g === "top" && <Top />}
       </div>
     );
@@ -33,9 +35,9 @@ export default function Games() {
         <span className="text-3xl" style={{ color: WINE }}>Буквин</span>
         <span className="font-sans text-sm text-black/70">Литературное слово дня за шесть попыток</span>
       </button>
-      <button disabled className={`${card} bg-[#d9b98c] opacity-60`}>
+      <button onClick={() => setG("razvin")} className={`${card} bg-[#d9b98c]`}>
         <span className="text-3xl" style={{ color: WINE }}>Развинирование</span>
-        <span className="font-sans text-sm text-black/70">Скоро</span>
+        <span className="font-sans text-sm text-black/70">Одно касание в день: что под листом?</span>
       </button>
       <button onClick={() => setG("top")} className="shrink-0 rounded-md py-2 font-sans text-sm shadow-md" style={{ background: WINE, color: "#f4ead6" }}>
         Рейтинг
