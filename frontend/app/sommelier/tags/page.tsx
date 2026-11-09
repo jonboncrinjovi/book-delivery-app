@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { useV } from "@/lib/address";
 
@@ -19,6 +20,14 @@ function makeStorm(subtags: Tag[]): StormWord[] {
     delay: Math.random() * 0.8,
   }));
 }
+
+// the book as a stencil: its ink lines take the card's ink colour, so it inverts with the theme
+const BOOK: CSSProperties = {
+  WebkitMaskImage: "url(/sommelier/book.png)", maskImage: "url(/sommelier/book.png)",
+  WebkitMaskSize: "contain", maskSize: "contain",
+  WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat",
+  WebkitMaskPosition: "center", maskPosition: "center",
+};
 
 // a luggage tag: corners cut at the top, a punched hole, text written vertically
 const TAG_SHAPE = "polygon(22% 0, 78% 0, 100% 10%, 100% 100%, 0 100%, 0 10%)";
@@ -91,45 +100,47 @@ export default function TagsPage() {
   }
 
   return (
-    <div className="flex h-full flex-col items-center gap-3">
-      {/* the open book: takes whatever height is left */}
-      <div aria-hidden="true" className="min-h-0 w-full flex-1 bg-contain bg-center bg-no-repeat"
-        style={{ backgroundImage: "url(/sommelier/book.png)" }} />
+    // relative: the overlays below cover this card, not the whole phone screen
+    <div className="relative flex h-full flex-col items-center">
+      {/* the open book: takes whatever height the rest leaves */}
+      <div aria-hidden="true" className="min-h-0 w-full flex-1 bg-ink" style={BOOK} />
 
-      <p className="shrink-0 text-center text-lg">
-        {anchor ? v("Добавьте оттенков или сразу задавайте.", "Добавь оттенков или сразу задавай.") : v("С чего начнём? Нажмите на плюс.", "С чего начнём? Нажми на плюс.")}
-      </p>
-
-      {/* the row of tags */}
-      <div className="flex h-28 w-full shrink-0 items-stretch justify-center gap-2">
-        <div className="w-10"><LuggageTag filled label={anchor?.name} onClick={clearAnchor} /></div>
-        {Array.from({ length: SLOTS }, (_, i) => {
-          const t = chosenTags[i];
-          return (
-            <div key={i} className="w-10">
-              <LuggageTag label={t?.name} onClick={t ? () => toggle(t.id) : plus} />
-            </div>
-          );
-        })}
-        <div className="flex flex-col items-center justify-center gap-1">
-          <button onClick={plus} aria-label="Добавить теги"
-            className="flex size-9 items-center justify-center rounded-full border-2 border-ink text-xl leading-none">+</button>
-          {chosenTags.length > SLOTS && <span className="font-sans text-xs text-muted">+{chosenTags.length - SLOTS}</span>}
+      {/* the prompt and the row of tags, between the book and the seal */}
+      <div className="flex w-full shrink-0 flex-col items-center gap-3 py-4">
+        <p className="text-center text-lg">
+          {anchor ? v("Добавьте оттенков или сразу задавайте.", "Добавь оттенков или сразу задавай.") : v("С чего начнём? Нажмите на плюс.", "С чего начнём? Нажми на плюс.")}
+        </p>
+        <div className="flex h-28 w-full items-stretch justify-center gap-2">
+          <div className="w-10"><LuggageTag filled label={anchor?.name} onClick={clearAnchor} /></div>
+          {Array.from({ length: SLOTS }, (_, i) => {
+            const t = chosenTags[i];
+            return (
+              <div key={i} className="w-10">
+                <LuggageTag label={t?.name} onClick={t ? () => toggle(t.id) : plus} />
+              </div>
+            );
+          })}
+          <div className="flex flex-col items-center justify-center gap-1">
+            <button onClick={plus} aria-label="Добавить теги"
+              className="flex size-9 items-center justify-center rounded-full border-2 border-ink text-xl leading-none">+</button>
+            {chosenTags.length > SLOTS && <span className="font-sans text-xs text-muted">+{chosenTags.length - SLOTS}</span>}
+          </div>
         </div>
       </div>
 
-      {/* the wax seal (CSS stand-in until the artwork) */}
+      {/* the wax seal, the same artwork as «Открыть» */}
       <button onClick={go}
-        className="flex size-32 shrink-0 items-center justify-center rounded-full bg-wine text-2xl text-paper-2 shadow-[0_6px_0_rgba(0,0,0,.2)] ring-8 ring-wine/30 transition active:scale-95">
+        className="flex size-36 shrink-0 items-center justify-center bg-contain bg-center bg-no-repeat text-2xl text-[#f4ead6] drop-shadow-md transition active:scale-95"
+        style={{ backgroundImage: "url(/pick/seal.png)" }}>
         Задать
       </button>
-      <button onClick={() => router.push("/sommelier/pick")} className="shrink-0 font-sans text-xs text-muted underline">
+      <button onClick={() => router.push("/sommelier/pick")} className="shrink-0 pb-1 font-sans text-xs text-muted underline">
         Удиви меня
       </button>
 
-      {/* the main genres: calm, large, one tap */}
+      {/* the main genres: calm, large, one tap; -inset-3 reaches over the card's padding to its rounded edge */}
       {overlay === "anchors" && (
-        <div className="card fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 p-6">
+        <div className="card absolute -inset-3 z-[60] flex flex-col items-center justify-center gap-4 rounded-3xl p-6">
           <p className="font-sans text-sm uppercase tracking-wide text-muted">Главный жанр</p>
           {anchors.map((a) => (
             <button key={a.id} className="text-3xl transition hover:text-wine"
@@ -141,18 +152,18 @@ export default function TagsPage() {
         </div>
       )}
 
-      {/* the storm: every subgenre of the chosen genre, all over the screen */}
+      {/* the storm: every subgenre of the chosen genre, all over the card */}
       {overlay === "storm" && (
-        <div className="card fixed inset-0 z-[60] overflow-hidden">
+        <div className="card absolute -inset-3 z-[60] overflow-hidden rounded-3xl">
           {storm.map((w) => (
             <button key={w.key} onClick={() => toggle(w.tag.id)}
               className={`absolute whitespace-nowrap leading-none motion-safe:animate-storm ${chosen.includes(w.tag.id) ? "text-wine underline" : "text-ink/80"}`}
-              style={{ left: `${w.x}%`, top: `${w.y}%`, fontSize: `${w.size}px`, rotate: `${w.rot}deg`, animationDelay: `${w.delay}s` }}>
+              style={{ left: `${w.x}%`, top: `${w.y}%`, fontSize: `${w.size * 0.75}px`, rotate: `${w.rot}deg`, animationDelay: `${w.delay}s` }}>
               {w.tag.name}
             </button>
           ))}
           <button onClick={() => setOverlay(null)}
-            className="fixed bottom-8 left-1/2 z-[61] -translate-x-1/2 rounded-full bg-wine px-8 py-3 font-sans text-paper-2 shadow-lg">
+            className="absolute bottom-6 left-1/2 z-[61] -translate-x-1/2 rounded-full bg-wine px-8 py-3 font-sans text-paper-2 shadow-lg">
             Готово
           </button>
         </div>

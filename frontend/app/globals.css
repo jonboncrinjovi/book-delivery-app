@@ -34,6 +34,14 @@
   --line: #cdb994;
 }
 
+/* real paper: a light, tileable fibre texture multiplied over the theme colours, so kraft and wine both become paper */
+.card,
+.bg-chrome {
+  background-image: url("/textures/paper.jpg");
+  background-size: 512px;
+  background-blend-mode: multiply;
+}
+
 @theme inline {
   --color-chrome: var(--chrome);
   --color-on-chrome: var(--on-chrome);

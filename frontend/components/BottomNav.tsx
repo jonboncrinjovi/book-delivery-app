@@ -23,7 +23,7 @@ export default function BottomNav() {
       <li key={t.href}>
         <Link href={t.href} aria-label={t.label}
           className={`flex p-3 transition ${active ? "opacity-100" : "opacity-60 hover:opacity-85"}`}>
-          <Image src={t.icon} alt="" width={32} height={32} className="size-8 object-contain" />
+          <span aria-hidden className="block size-8 bg-current" style={{ WebkitMaskImage: `url(${t.icon})`, maskImage: `url(${t.icon})`, WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", WebkitMaskPosition: "center", maskPosition: "center" }} />
         </Link>
       </li>
     );
