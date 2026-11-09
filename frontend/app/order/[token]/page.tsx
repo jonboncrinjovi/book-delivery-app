@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useV } from "@/lib/address";
 import { ConfirmBox } from "@/components/ConfirmBox";
 import PayButton from "@/components/PayButton";
+import TipBox, { TipThanks } from "@/components/TipBox";
 
 type Track = {
   id: number;
@@ -85,12 +86,13 @@ export default function TrackPage() {
   const [order, setOrder] = useState<Track | null>(null);
   const [missing, setMissing] = useState(false);
   const v = useV();
+  const [tipping, setTipping] = useState(false);
 
   // load now, then every 30 seconds until the order reaches a final state
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
     async function load() {
-      const res = await fetch(`/api/track/${token}`);
+      const res = await fetch(`/api/track/${token}`, { cache: "no-store" });
       if (!res.ok) {
         setMissing(true);
         return;
@@ -100,8 +102,10 @@ export default function TrackPage() {
       if (o.status === "delivered" || o.status === "cancelled") clearInterval(timer);
     }
     load();
-    timer = setInterval(load, 30_000);
-    return () => clearInterval(timer);
+    timer = setInterval(load, 10_000);
+    const onShow = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onShow);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", onShow); };
   }, [token]);
 
   if (missing) {
@@ -165,9 +169,16 @@ export default function TrackPage() {
             <p className="text-xl" style={{ color: WINE }}>{v("Будем рады видеть Вас снова!", "Будем рады видеть тебя снова!")}</p>
             <img src="/track/farewell.png" alt="" className="min-h-0 flex-1 object-contain"
               onError={(e) => (e.currentTarget.style.display = "none")} />
-            <Link href="/reviews" className="mt-2 self-start rounded-full px-5 py-2 font-sans text-sm" style={{ background: WINE, color: CREAM }}>
-              Оставить отзыв
-            </Link>
+            <TipThanks token={token} />
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Link href="/reviews" className="rounded-full px-5 py-2 font-sans text-sm" style={{ background: WINE, color: CREAM }}>
+                Оценить доставку
+              </Link>
+              <button onClick={() => setTipping((t) => !t)} className="rounded-full border px-5 py-2 font-sans text-sm" style={{ borderColor: WINE, color: WINE }}>
+                Оставить чаевые
+              </button>
+            </div>
+            {tipping && <TipBox token={token} />}
           </div>
         ) : (
           <div className="space-y-2">

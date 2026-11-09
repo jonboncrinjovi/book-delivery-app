@@ -57,6 +57,7 @@ export default function PayButton({ token }: { token: string }) {
         {busy ? "Переходим к оплате…" : "Оплатить"}
       </button>
       <p className="font-sans text-xs text-muted">Картой, через СБП или T-Pay. Чек придёт на этот адрес.</p>
+      <p className="font-sans text-xs text-muted">Если включён VPN, отключите его перед оплатой: банки отклоняют платежи с иностранных адресов.</p>
       {msg && <p className="font-sans text-sm text-wine">{msg}</p>}
     </div>
   );

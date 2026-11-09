@@ -63,7 +63,6 @@ function PairStep({ bookId, category, onDone }: { bookId: number; category: Pair
     // the kraft sheet, with optional ink ornaments in two corners
     <div className="relative flex h-full flex-col rounded-xl bg-[#c9a77a] p-4 text-black"
       style={{
-        backgroundImage: "url(/pair/corner-tr.png), url(/pair/corner-bl.png)",
         backgroundPosition: "top right, bottom left",
         backgroundSize: "40% auto, 35% auto",
         backgroundRepeat: "no-repeat",

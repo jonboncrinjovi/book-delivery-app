@@ -18,7 +18,6 @@ const WINE = "#57030d";
 const CREAM = "#f4ead6";
 const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
 const day = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
-const corner = "pointer-events-none absolute z-10 h-16 w-16 object-contain";
 
 export default function BookPage() {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +30,7 @@ export default function BookPage() {
   const [text, setText] = useState("");
   const [message, setMessage] = useState("");
   const [added, setAdded] = useState(false);
+  const [owned, setOwned] = useState(false); // delivered to them: offer it as a gift
   const v = useV();
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +41,7 @@ export default function BookPage() {
     fetch("/api/me/reviewable").then((r) => (r.ok ? r.json() : [])).then((books: { id: number }[]) => {
       const ok = books.some((b) => b.id === bookId);
       setCanReview(ok);
+      setOwned(ok);
       // from the bookmark on the shelf: open the form straight away
       if (ok && new URLSearchParams(window.location.search).has("write")) setWriting(true);
     }).catch(() => {});
@@ -89,10 +90,6 @@ export default function BookPage() {
     <div className="h-full rounded-xl bg-[#cdb08a] p-3">
       {/* the frame stays put, the corners sit on it, only the inside scrolls */}
       <div className="relative h-full border-[3px] border-double border-black/70 shadow-md" style={{ background: CREAM }}>
-        <img src="/pair/corner-tr.png" alt="" className={`${corner} right-0 top-0`} />
-        <img src="/pair/corner-tr.png" alt="" className={`${corner} left-0 top-0 -scale-x-100`} />
-        <img src="/pair/corner-bl.png" alt="" className={`${corner} bottom-0 left-0`} />
-        <img src="/pair/corner-bl.png" alt="" className={`${corner} bottom-0 right-0 -scale-x-100`} />
 
         <div className="h-full overflow-y-auto px-6 py-8 text-black">
           {/* the book on its shelf */}
@@ -112,9 +109,10 @@ export default function BookPage() {
 
           <button onClick={add} disabled={!p.available || added}
             className="mt-5 w-full rounded-full py-3 text-xl shadow-lg disabled:opacity-60" style={{ background: WINE, color: CREAM }}>
-            {!p.available ? "Нет в наличии" : added ? "В корзине" : `Добавить в корзину · ${rub(p.price_cents)}`}
+            {!p.available ? "Нет в наличии" : added ? "В корзине" : `${owned ? "Подарить" : "Добавить в корзину"} · ${rub(p.price_cents)}`}
           </button>
           {added && <Link href="/cart" className="mt-2 block text-center font-sans text-sm underline">Перейти в корзину</Link>}
+          {added && owned && <p className="mt-1 text-center font-sans text-xs opacity-70">При оформлении отметьте, что это подарок, и укажите получателя.</p>}
           {p.category === "drink" && <Disclaimer />}
 
           {/* the book's reviews */}
