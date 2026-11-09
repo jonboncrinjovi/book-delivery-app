@@ -23,9 +23,6 @@ const CREAM = "#f4ead6";
 const KRAFT = "#cdb08a";
 const GOLD = "#b8892d";
 
-// edit this: who you are, how you pack, why books and wine
-const TEAM_TITLE = "Кто мы";
-const TEAM_TEXT = "Здесь будет рассказ о команде: кто мы, как собираем посылки и почему книги и вино.";
 
 const day = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
 const level = (r: Review) => (r.votes > 0 ? Math.round(r.avg) : 0);
@@ -283,8 +280,6 @@ function ServiceReviews() {
         <img src="/team/box.jpg" alt="" className="h-40 w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
         <AboutUs />
         <div className="p-4">
-          <p className="text-xl" style={{ color: WINE }}>{TEAM_TITLE}</p>
-          <p className="mt-1 leading-snug">{TEAM_TEXT}</p>
         </div>
       </section>
 

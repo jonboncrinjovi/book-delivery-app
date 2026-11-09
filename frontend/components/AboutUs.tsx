@@ -1,3 +1,4 @@
+const WINE = "#57030d";
 // «О нас»: who we are, and the personal library service
 export default function AboutUs() {
   return (
