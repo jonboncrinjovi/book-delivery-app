@@ -18,7 +18,7 @@ func myPoints(pool *pgxpool.Pool) http.HandlerFunc {
 		pool.QueryRow(r.Context(), `
 			SELECT COALESCE(SUM(score), 0),
 			       COALESCE(SUM(score) FILTER (WHERE (finished_at AT TIME ZONE 'Europe/Moscow')::date = (now() AT TIME ZONE 'Europe/Moscow')::date), 0)
-			FROM game_scores WHERE user_id = $1`, uid).Scan(&total, &today)
+			FROM point_scores WHERE user_id = $1`, uid).Scan(&total, &today)
 		writeJSON(w, http.StatusOK, map[string]int64{"total": total, "today": today})
 	}
 }

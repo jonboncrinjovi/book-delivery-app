@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GRAPE_NAMES, GrapeRow } from "@/components/GrapeRow";
 import { Disclaimer } from "@/components/Disclaimer";
+import AboutUs from "@/components/AboutUs";
 import Obzor from "@/components/Obzor";
 import { useV } from "@/lib/address";
 
@@ -280,6 +281,7 @@ function ServiceReviews() {
       {/* who we are: static, where the big box sits in the mockup */}
       <section className="overflow-hidden rounded-md shadow-md" style={{ background: CREAM }}>
         <img src="/team/box.jpg" alt="" className="h-40 w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
+        <AboutUs />
         <div className="p-4">
           <p className="text-xl" style={{ color: WINE }}>{TEAM_TITLE}</p>
           <p className="mt-1 leading-snug">{TEAM_TEXT}</p>

@@ -144,7 +144,7 @@ export default function BookPage() {
             )}
             {writing && (
               <div ref={formRef} className="mt-4 space-y-2">
-                <p className="font-sans text-xs opacity-60">{v("Не о сюжете, а о том, что книга с Вами сделала. До 200 знаков.", "Не о сюжете, а о том, что книга с тобой сделала. До 200 знаков.")}</p>
+                <p className="font-sans text-xs opacity-60">{v("Не о сюжете, а о том, что книга с Вами сделала. До 200 знаков. За опубликованную рецензию: 50 книвиночек.", "Не о сюжете, а о том, что книга с тобой сделала. До 200 знаков. За опубликованную рецензию: 50 книвиночек.")}</p>
                 <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={200} rows={3} autoFocus
                   placeholder="Что осталось после чтения?"
                   className="w-full rounded-md border border-black/20 bg-white p-3 font-sans text-[15px] outline-none focus:border-[#57030d]" />
