@@ -192,6 +192,16 @@ func payStart(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		token := r.PathValue("token")
+		var in struct {
+			Email string `json:"email"`
+		}
+		json.NewDecoder(r.Body).Decode(&in)
+		email := strings.TrimSpace(in.Email)
+		at := strings.LastIndex(email, "@")
+		if at < 1 || !strings.Contains(email[at+1:], ".") {
+			http.Error(w, "Укажите e-mail: на него придёт чек", http.StatusBadRequest)
+			return
+		}
 		o, err := loadPayOrder(ctx, pool, token)
 		if err != nil {
 			http.Error(w, "Нет такого заказа", http.StatusNotFound)
@@ -220,7 +230,7 @@ func payStart(pool *pgxpool.Pool) http.HandlerFunc {
 			"failRedirectUrl": siteURL() + "/order/" + token + "?failed=1",
 			"ttl":             60,
 			"taxSystemCode":   tax,
-			"Client":          map[string]string{"name": cut(o.Name, 64), "phone": normPhone(o.Phone)},
+			"Client":          map[string]string{"name": cut(o.Name, 64), "phone": normPhone(o.Phone), "email": email},
 			"Items":           items,
 		}}
 		res, err := tochkaCall(ctx, "POST", "/acquiring/v1.0/payments_with_receipt", body)
@@ -235,7 +245,7 @@ func payStart(pool *pgxpool.Pool) http.HandlerFunc {
 			http.Error(w, "Не удалось создать оплату", http.StatusBadGateway)
 			return
 		}
-		pool.Exec(ctx, `UPDATE orders SET payment_id = $1, payment_link = $2, payment_created_at = now() WHERE id = $3`, opID, link, o.ID)
+		pool.Exec(ctx, `UPDATE orders SET payment_id = $1, payment_link = $2, payment_created_at = now(), customer_email = $4 WHERE id = $3`, opID, link, o.ID, email)
 		writeJSON(w, http.StatusOK, map[string]string{"url": link})
 	}
 }

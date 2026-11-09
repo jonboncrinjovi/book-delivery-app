@@ -6,6 +6,17 @@ import { useRouter } from "next/navigation";
 import { setContact, useCart } from "@/lib/cart";
 import { Consents } from "@/components/Consents";
 import { useV } from "@/lib/address";
+// the town goes in front of the street, so «Ветеранов, 10» in Sertolovo can't land on the prospekt in the city
+const TOWNS = ["Санкт-Петербург", "Сертолово", "Мурино", "Кудрово", "Всеволожск", "Новое Девяткино", "Бугры",
+  "Парголово", "Песочный", "Сестрорецк", "Зеленогорск", "Кронштадт", "Петергоф", "Ломоносов", "Красное Село",
+  "Пушкин", "Павловск", "Колпино", "Шушары", "Гатчина"];
+const DEFAULT_TOWN = "Санкт-Петербург";
+// "Сертолово, ул. Ветеранов, 10" → ["Сертолово", "ул. Ветеранов, 10"]
+function splitTown(a: string): [string, string] {
+  for (const t of TOWNS) if (a.startsWith(`${t}, `)) return [t, a.slice(t.length + 2)];
+  return [DEFAULT_TOWN, a];
+}
+const joinTown = (t: string, a: string) => (t.trim() ? `${t.trim()}, ${a.trim()}` : a.trim());
 
 const input = "w-full rounded-md border border-black/20 bg-white px-3 py-2.5 font-sans text-[15px] outline-none focus:border-[#57030d]";
 
@@ -20,6 +31,7 @@ export default function CheckoutPage() {
   const [rName, setRName] = useState("");
   const [rPhone, setRPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [town, setTown] = useState(DEFAULT_TOWN);
   const [comment, setComment] = useState("");
   const [offerOk, setOfferOk] = useState(false);
   const [pdOk, setPdOk] = useState(false);
@@ -29,7 +41,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (c) {
       setName(c.name); setPhone(c.phone); setRName(c.recipientName); setRPhone(c.recipientPhone);
-      setAddress(c.address); setComment(c.comment);
+      { const [t, a] = splitTown(c.address); setTown(t); setAddress(a); } setComment(c.comment);
       return;
     }
     fetch("/api/me")
@@ -38,7 +50,7 @@ export default function CheckoutPage() {
         if (!m) return;
         setName((v) => v || m.name);
         setPhone((v) => v || m.phone || "");
-        if (!gift) setAddress((v) => v || m.address || "");
+        if (!gift && m.address) { const [t, a] = splitTown(m.address); setAddress((v) => v || a); setTown((cur) => (cur === DEFAULT_TOWN ? t : cur)); }
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,7 +68,7 @@ export default function CheckoutPage() {
   const ready = name.trim() && phone.trim() && address.trim() && (!gift || (rName.trim() && rPhone.trim())) && offerOk && pdOk;
 
   function next() {
-    setContact({ name, phone, recipientName: rName, recipientPhone: rPhone, address, comment });
+    setContact({ name, phone, recipientName: rName, recipientPhone: rPhone, address: joinTown(town, address), comment });
     router.push("/cart");
   }
 
@@ -79,6 +91,8 @@ export default function CheckoutPage() {
         )}
 
         <p className="pt-2 font-sans text-xs uppercase tracking-wide opacity-60">Адрес</p>
+        <input className={input} list="towns" placeholder="Населённый пункт" value={town} onChange={(e) => setTown(e.target.value)} />
+        <datalist id="towns">{TOWNS.map((t) => <option key={t} value={t} />)}</datalist>
         <input className={input} placeholder="Улица, дом, квартира" value={address} onChange={(e) => setAddress(e.target.value)} />
         <input className={input} placeholder="Подъезд, этаж, домофон (необязательно)" value={comment} onChange={(e) => setComment(e.target.value)} />
       </div>
