@@ -6,19 +6,24 @@ import { useRouter } from "next/navigation";
 import { useV } from "@/lib/address";
 
 type Tag = { id: number; name: string; children?: Tag[] };
-type StormWord = { key: number; tag: Tag; size: number; x: number; y: number; rot: number; delay: number };
+type Word = { key: number; tag: Tag; size: number; vertical: boolean; font: string; bold: boolean; upper: boolean; delay: number };
 
-// 140 copies of the subtags at random sizes, places and angles; built on a tap, never during render
-function makeStorm(subtags: Tag[]): StormWord[] {
-  return Array.from({ length: 140 }, (_, i) => ({
+const FONTS = ["font-serif", "font-sans", "font-hand"];
+const INK = "#1c1410";
+const RED_INK = "#8c1c2b";
+
+// the type-specimen sheet: 80 copies of the subtags in mixed faces, sizes and directions, shuffled; built on a tap
+function makeSheet(subtags: Tag[]): Word[] {
+  return Array.from({ length: 80 }, (_, i) => ({
     key: i,
     tag: subtags[i % subtags.length],
-    size: 14 + Math.random() * 46,
-    x: Math.random() * 88,
-    y: Math.random() * 90,
-    rot: (Math.random() - 0.5) * 40,
-    delay: Math.random() * 0.8,
-  }));
+    size: 12 + Math.random() * 24,
+    vertical: Math.random() < 0.3,
+    font: FONTS[Math.floor(Math.random() * FONTS.length)],
+    bold: Math.random() < 0.45,
+    upper: Math.random() < 0.3,
+    delay: Math.random() * 0.5,
+  })).sort(() => Math.random() - 0.5);
 }
 
 // the book as a stencil: its ink lines take the card's ink colour, so it inverts with the theme
@@ -29,7 +34,7 @@ const BOOK: CSSProperties = {
   WebkitMaskPosition: "center", maskPosition: "center",
 };
 
-// a luggage tag: corners cut at the top, a punched hole, text written vertically
+// a luggage tag: corners cut at the top, a punched hole, text up the middle like a book's spine
 const TAG_SHAPE = "polygon(22% 0, 78% 0, 100% 10%, 100% 100%, 0 100%, 0 10%)";
 
 function LuggageTag({ label, filled, onClick }: { label?: string; filled?: boolean; onClick?: () => void }) {
@@ -40,9 +45,12 @@ function LuggageTag({ label, filled, onClick }: { label?: string; filled?: boole
       <span className={`absolute inset-[2px] ${filled ? "bg-wine" : "bg-paper-2"}`} style={{ clipPath: TAG_SHAPE }} />
       <span className="absolute left-1/2 top-[7%] size-2 -translate-x-1/2 rounded-full border border-ink/40 bg-paper" />
       {label && (
-        <span className={`absolute inset-x-0 bottom-2 top-[17%] flex items-center justify-center overflow-hidden font-sans text-xs ${filled ? "text-paper-2" : "text-ink"}`}
-          style={{ writingMode: "vertical-rl" }}>
-          {label}
+        // the outer box centres; only the inner text is vertical, turned to read bottom to top
+        <span className="absolute inset-x-0 bottom-2 top-[18%] flex items-center justify-center overflow-hidden">
+          <span className={`whitespace-nowrap text-[13px] leading-none ${filled ? "text-paper-2" : "text-ink"}`}
+            style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
+            {label}
+          </span>
         </span>
       )}
     </button>
@@ -56,8 +64,10 @@ export default function TagsPage() {
   const [anchors, setAnchors] = useState<Tag[]>([]);
   const [anchor, setAnchor] = useState<Tag | null>(null);
   const [chosen, setChosen] = useState<number[]>([]);
-  const [overlay, setOverlay] = useState<"anchors" | "storm" | null>(null);
-  const [storm, setStorm] = useState<StormWord[]>([]);
+  // which copy on the sheet was circled for each chosen tag
+  const [marks, setMarks] = useState<Record<number, number>>({});
+  const [overlay, setOverlay] = useState<"anchors" | "sheet" | null>(null);
+  const [sheet, setSheet] = useState<Word[]>([]);
   const v = useV();
 
   useEffect(() => {
@@ -65,20 +75,31 @@ export default function TagsPage() {
   }, []);
 
   const subtags = anchor?.children ?? [];
-  const chosenTags = subtags.filter((t) => chosen.includes(t.id));
+  const chosenTags = chosen.map((id) => subtags.find((t) => t.id === id)).filter((t): t is Tag => Boolean(t));
 
-  // "+": first the main genres; once one is chosen, the storm of its subgenres
+  // "+": first the main genres; once one is chosen, the sheet of its subgenres
   function plus() {
     if (!anchor) {
       setOverlay("anchors");
     } else if (subtags.length > 0) {
-      setStorm(makeStorm(subtags));
-      setOverlay("storm");
+      setSheet(makeSheet(subtags));
+      setOverlay("sheet");
     }
   }
 
-  function toggle(id: number) {
-    setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
+  function unchoose(id: number) {
+    setChosen((c) => c.filter((x) => x !== id));
+    setMarks(({ [id]: _, ...rest }) => rest);
+  }
+
+  // on the sheet: circle this copy, or uncircle it
+  function tapWord(w: Word) {
+    if (chosen.includes(w.tag.id)) {
+      unchoose(w.tag.id);
+    } else {
+      setChosen((c) => [...c, w.tag.id]);
+      setMarks((m) => ({ ...m, [w.tag.id]: w.key }));
+    }
   }
 
   // the red tag: tap it to clear everything and start over
@@ -86,6 +107,7 @@ export default function TagsPage() {
     if (anchor) {
       setAnchor(null);
       setChosen([]);
+      setMarks({});
     } else {
       setOverlay("anchors");
     }
@@ -116,7 +138,7 @@ export default function TagsPage() {
             const t = chosenTags[i];
             return (
               <div key={i} className="w-10">
-                <LuggageTag label={t?.name} onClick={t ? () => toggle(t.id) : plus} />
+                <LuggageTag label={t?.name} onClick={t ? () => unchoose(t.id) : plus} />
               </div>
             );
           })}
@@ -144,7 +166,7 @@ export default function TagsPage() {
           <p className="font-sans text-sm uppercase tracking-wide text-muted">Главный жанр</p>
           {anchors.map((a) => (
             <button key={a.id} className="text-3xl transition hover:text-wine"
-              onClick={() => { setAnchor(a); setChosen([]); setOverlay(null); }}>
+              onClick={() => { setAnchor(a); setChosen([]); setMarks({}); setOverlay(null); }}>
               {a.name}
             </button>
           ))}
@@ -152,19 +174,42 @@ export default function TagsPage() {
         </div>
       )}
 
-      {/* the storm: every subgenre of the chosen genre, all over the card */}
-      {overlay === "storm" && (
-        <div className="card absolute -inset-3 z-[60] overflow-hidden rounded-3xl">
-          {storm.map((w) => (
-            <button key={w.key} onClick={() => toggle(w.tag.id)}
-              className={`absolute whitespace-nowrap leading-none motion-safe:animate-storm ${chosen.includes(w.tag.id) ? "text-wine underline" : "text-ink/80"}`}
-              style={{ left: `${w.x}%`, top: `${w.y}%`, fontSize: `${w.size * 0.75}px`, rotate: `${w.rot}deg`, animationDelay: `${w.delay}s` }}>
-              {w.tag.name}
-            </button>
-          ))}
-          <button onClick={() => setOverlay(null)}
-            className="absolute bottom-6 left-1/2 z-[61] -translate-x-1/2 rounded-full bg-wine px-8 py-3 font-sans text-paper-2 shadow-lg">
-            Готово
+      {/* the sheet: a type-specimen collage of the subgenres, kraft on the left and white on the right */}
+      {overlay === "sheet" && (
+        <div className="card absolute -inset-3 z-[60] flex flex-col rounded-3xl px-5 pb-5 pt-3">
+          <p className="shrink-0 pb-2 text-center font-sans text-xs text-muted">Обведите то, что по душе</p>
+          <div className="relative min-h-0 flex-1 overflow-hidden shadow-lg"
+            style={{
+              backgroundImage: "url(/textures/paper.jpg), linear-gradient(to right, #c9a77a 50%, #f3eee4 50%)",
+              backgroundSize: "512px, 100% 100%",
+              backgroundBlendMode: "multiply",
+              color: INK,
+            }}>
+            <div className="flex h-full flex-wrap content-start items-center justify-center p-3">
+              {sheet.map((w) => {
+                const n = marks[w.tag.id] === w.key ? chosen.indexOf(w.tag.id) + 1 : 0;
+                return (
+                  <button key={w.key} onClick={() => tapWord(w)}
+                    className={`relative m-1 whitespace-nowrap leading-none motion-safe:animate-storm ${w.font} ${w.bold ? "font-bold" : ""} ${w.upper ? "uppercase tracking-tight" : ""}`}
+                    style={{ fontSize: `${w.size}px`, writingMode: w.vertical ? "vertical-rl" : undefined, animationDelay: `${w.delay}s` }}>
+                    {w.tag.name}
+                    {n > 0 && (
+                      <>
+                        {/* a hand-drawn ring in wine ink, slightly askew, and its number */}
+                        <span aria-hidden className="pointer-events-none absolute -inset-x-2 -inset-y-1.5 rounded-[50%] border-[2.5px]"
+                          style={{ borderColor: RED_INK, rotate: "-5deg" }} />
+                        <span aria-hidden className="pointer-events-none absolute -right-3 -top-3 font-hand text-xl font-bold"
+                          style={{ color: RED_INK, writingMode: "horizontal-tb" }}>{n}</span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <button onClick={() => setOverlay(null)} aria-label="Готово"
+            className="absolute bottom-8 left-1/2 z-[61] flex size-14 -translate-x-1/2 items-center justify-center rounded-full bg-[#57030d] pb-1 text-3xl text-[#f4ead6] shadow-lg">
+            ‹
           </button>
         </div>
       )}
