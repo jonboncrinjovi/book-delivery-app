@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useV } from "@/lib/address";
 import { ConfirmBox } from "@/components/ConfirmBox";
+import PayButton from "@/components/PayButton";
 
 type Track = {
   id: number;
@@ -170,6 +171,7 @@ export default function TrackPage() {
           </div>
         ) : (
           <div className="space-y-2">
+            <PayButton token={token} />
             <ConfirmBox token={token} status={order.status} />
             {order.status === "awaiting_payment" && (
               <p className="font-sans text-sm" style={{ color: WINE }}>{v("Подтвердите заказ в Telegram, и мы начнём его собирать.", "Подтверди заказ в Telegram, и мы начнём его собирать.")}</p>

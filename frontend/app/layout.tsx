@@ -30,8 +30,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <header className="mx-auto grid w-full max-w-md shrink-0 grid-cols-[2.5rem_1fr_2.5rem] items-center px-3 py-2 text-on-chrome">
           <MusicToggle />
           <Link href="/" className="flex items-center justify-center gap-2 text-2xl">
-            <img src="/brand/logo-wine.png" alt="Книжки&Винишко" className="logo-light h-11 w-auto" />
-            <img src="/brand/logo-kraft.png" alt="Книжки&Винишко" className="logo-dark h-11 w-auto" />
+            <img src="/brand/logo-wine.png" alt="Книжки&Винишко" className="logo-light h-11 w-auto translate-x-2" />
+            <img src="/brand/logo-kraft.png" alt="Книжки&Винишко" className="logo-dark h-11 w-auto translate-x-2" />
           </Link>
           <ThemeToggle />
         </header>

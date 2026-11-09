@@ -81,6 +81,10 @@ func main() {
 
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
+mux.HandleFunc("GET /api/track/{token}/pay", payInfo(pool))
+mux.HandleFunc("POST /api/track/{token}/pay", payStart(pool))
+mux.HandleFunc("POST /api/track/{token}/check", payCheck(pool))
+go paymentPoller(pool)
 mux.HandleFunc("GET /api/me/points", myPoints(pool))
     mux.HandleFunc("GET /api/obzor/current", obzorCurrent(pool))
     mux.HandleFunc("GET /api/obzor/archive", obzorArchive(pool))

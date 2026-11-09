@@ -18,7 +18,7 @@ function Bag({ c, onClick }: { c: BagColor; onClick: () => void }) {
     <button onClick={onClick} aria-label={c.name} className="flex flex-1 flex-col items-center transition active:scale-95">
       {ok ? (
         <img src={`/wrap/bag-${c.code}.png`} alt="" onError={() => setOk(false)}
-          className="aspect-[3/4] w-full object-contain drop-shadow-md transition hover:-translate-y-0.5" />
+          className="aspect-[3/4] w-full origin-bottom scale-[1.3] object-contain drop-shadow-md transition hover:-translate-y-0.5" />
       ) : (
         <span className="aspect-[3/4] w-full rounded-sm shadow-md" style={{ backgroundColor: c.hex }} />
       )}
@@ -57,7 +57,7 @@ export default function WrapPage() {
     <div className="flex h-full flex-col overflow-hidden rounded-xl bg-[#c9a77a] text-black">
       {/* top: the headline and the illustration */}
       <div className="flex min-h-0 flex-1 items-center gap-2 bg-contain bg-right bg-no-repeat p-5"
-        style={{ backgroundImage: `url(/wrap/${blind ? "parcel" : "bags"}.png)`, backgroundSize: "auto 75%" }}>
+        style={{ backgroundImage: `url(/wrap/${blind ? "parcel" : "bags"}.png)`, backgroundSize: "auto 75%", backgroundPosition: "right -1.5rem center" }}>
         <h1 className="max-w-[55%] text-3xl leading-tight">
           {blind ? v("Итак, у Вас свидание вслепую. Как волнительно!", "Итак, у тебя свидание вслепую. Как волнительно!") : v("Ваш заказ почти готов. Во что упакуем?", "Твой заказ почти готов. Во что упакуем?")}
         </h1>
@@ -66,14 +66,14 @@ export default function WrapPage() {
       {/* bottom: the torn paper with the bags */}
       <div className="shrink-0 bg-[#f4ead6] px-4 pb-4 pt-7" style={{ clipPath: TORN }}>
         <p className="text-center text-lg">{v("Подберите цвет пакета под Ваш заказ!", "Подбери цвет пакета под свой заказ!")}</p>
-        <div className="mt-3 flex gap-1">
+        <div className="mt-8 flex gap-1">
           {colors.map((c) => <Bag key={c.code} c={c} onClick={() => choose("BAG", c.code)} />)}
         </div>
         <div className="mt-4 flex gap-2">
           <button onClick={() => choose("BAG", null)} className={button}>Любой цвет</button>
           {fitting && (
             <button onClick={() => choose(fitting.code, null)} className={button}>
-              Хочу коробочку{fitting.capacity_slots !== null && fitting.price_cents > 0 ? ` · ${rub(fitting.price_cents)}` : ""}
+              Хочу коробочку{fitting.capacity_slots !== null && fitting.price_cents > 0 ? <span className="block text-xs opacity-80">+{rub(fitting.price_cents)}</span> : null}
             </button>
           )}
         </div>
