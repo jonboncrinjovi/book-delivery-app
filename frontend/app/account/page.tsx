@@ -6,5 +6,5 @@ import Points from "@/components/Points";
 export const dynamic = "force-dynamic";
 
 export default function Page() {
-  return <Account bot={process.env.TELEGRAM_BOT_NAME ?? ""} />;
+  return <><Points /><Account bot={process.env.TELEGRAM_BOT_NAME ?? ""} /></>;
 }

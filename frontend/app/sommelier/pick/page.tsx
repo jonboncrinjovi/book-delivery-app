@@ -176,10 +176,10 @@ export default function PickPage() {
 
       {/* the paper strip: seal on its edge, ↻ left, ♥ right */}
       {card && (
-        <div className="relative mt-4 shrink-0 rounded-2xl bg-[#efe6d4] px-6 pb-3 pt-8 text-black shadow-md">
+        <div className="relative mt-4 shrink-0 rounded-2xl bg-[#efe6d4] px-6 pb-3 pt-14 text-black shadow-md">
           {!revealed && !saved && (
             <button onClick={reveal}
-              className="absolute left-1/2 top-0 flex size-24 -translate-x-1/2 -translate-y-3/4 items-center justify-center bg-contain bg-center bg-no-repeat text-lg text-[#f4ead6] drop-shadow-md transition active:scale-95" style={{ backgroundImage: "url(/pick/seal.png)" }}>
+              className="absolute left-1/2 top-0 flex size-48 -translate-x-1/2 -translate-y-3/4 items-center justify-center bg-contain bg-center bg-no-repeat text-3xl text-[#f4ead6] drop-shadow-md transition active:scale-95" style={{ backgroundImage: "url(/pick/seal.png)" }}>
               Открыть
             </button>
           )}
