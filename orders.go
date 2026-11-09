@@ -195,6 +195,23 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 	}
 	defer tx.Rollback(ctx)
 
+    // the daily cap: today's orders are counted under a lock, so two orders arriving
+    // in the same second can't both slip through as the last one 
+    if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(20261109)`); err != nil {
+        return resp, err
+    }
+    var maxDay, today int
+    if err := tx.QueryRow(ctx, `
+        SELECT (SELECT max_orders_day FROM settings),
+               (SELECT count(*) FROM orders
+                WHERE (created_at AT TIME ZONE 'Europe/Moscow')::date = (now() AT TIME ZONE 'Europe/Moscow')::date
+                  AND status::text NOT IN ('cancelled', 'cancelled'))`).Scan(&maxDay, &today); err != nil {
+        return resp, err
+    }
+    if maxDay > 0 && today >= maxDay {
+      return resp, badRequest{"На сегодня мы уже приняли все заказы, которые успеем доставить. Приходите завтра!"}
+    }
+
 	// 4. packaging
 	var capacity *int
 	var boxPrice int
