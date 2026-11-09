@@ -59,7 +59,7 @@ const icon = (paths: string[]) => (
   </svg>
 );
 const refreshIcon = icon(["M20 11a8 8 0 0 0-14.9-3.9", "M4 4v4h4", "M4 13a8 8 0 0 0 14.9 3.9", "M20 20v-4h-4"]);
-const heartIcon = icon(["M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z", "M12 9v8", "M9 10l3 1 3-1"]);
+const heartIcon = <img src="/pick/heart.png" alt="" className="size-9 object-contain" />;
 
 export default function PickPage() {
   const router = useRouter();
@@ -179,7 +179,7 @@ export default function PickPage() {
         <div className="relative mt-4 shrink-0 rounded-2xl bg-[#efe6d4] px-6 pb-3 pt-8 text-black shadow-md">
           {!revealed && !saved && (
             <button onClick={reveal}
-              className="absolute left-1/2 top-0 flex size-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#57030d] text-lg text-[#f4ead6] shadow-[0_4px_0_rgba(0,0,0,.25)] ring-4 ring-[#57030d]/40 transition active:scale-95">
+              className="absolute left-1/2 top-0 flex size-24 -translate-x-1/2 -translate-y-3/4 items-center justify-center bg-contain bg-center bg-no-repeat text-lg text-[#f4ead6] drop-shadow-md transition active:scale-95" style={{ backgroundImage: "url(/pick/seal.png)" }}>
               Открыть
             </button>
           )}
@@ -202,7 +202,7 @@ export default function PickPage() {
                     <p className="truncate font-sans text-xs text-black/60">{revealed.author}</p>
                   </>
                 ) : (
-                  <p className="font-sans text-sm text-black/60">{rub(card.price_cents)}</p>
+                  <p className="text-2xl font-semibold text-black/75">{rub(card.price_cents)}</p>
                 )}
               </div>
               <button onClick={() => swipe.current?.fling(1)} aria-label="На полку">{heartIcon}</button>

@@ -1,4 +1,5 @@
 import Account from "@/components/Account";
+import Points from "@/components/Points";
 
 // render on each request, so the environment variable below is read when the server runs,
 // not baked in (empty) while the Docker image is built

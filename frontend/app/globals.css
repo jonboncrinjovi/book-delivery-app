@@ -87,3 +87,9 @@ html, body { overflow-x: clip; }
   --font-inter: "Inter Variable", system-ui, sans-serif;
   --font-caveat: "Caveat Variable", cursive;
 }
+
+/* the header lockup: wine on the kraft (light) theme, kraft on the wine (dark) theme */
+[data-theme="dark"] .logo-light,
+:root:not([data-theme="dark"]) .logo-dark {
+  display: none;
+}

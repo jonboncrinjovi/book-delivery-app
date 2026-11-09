@@ -81,6 +81,7 @@ func main() {
 
 	// images
 	mux.Handle("GET /api/media/", mediaHandler("/media"))
+mux.HandleFunc("GET /api/me/points", myPoints(pool))
     mux.HandleFunc("GET /api/obzor/current", obzorCurrent(pool))
     mux.HandleFunc("GET /api/obzor/archive", obzorArchive(pool))
     mux.HandleFunc("GET /api/obzor/{id}", obzorGet(pool))

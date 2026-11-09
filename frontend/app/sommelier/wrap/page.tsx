@@ -11,16 +11,17 @@ type BoxSize = { code: string; name: string; capacity_slots: number | null; pric
 const rub = (cents: number) => `${(cents / 100).toLocaleString("ru-RU")} ₽`;
 const TORN = "polygon(0 4%, 4% 0, 9% 3%, 15% 1%, 21% 4%, 27% 1%, 33% 3%, 40% 0, 46% 4%, 53% 1%, 60% 3%, 66% 0, 73% 4%, 80% 1%, 86% 3%, 93% 0, 100% 3%, 100% 100%, 0 100%)";
 
-// a bag: your stamped artwork if it exists, otherwise a plain bag in the right colour
+// a bag: your cut-out photo; a plain block in its colour until the photo is there
 function Bag({ c, onClick }: { c: BagColor; onClick: () => void }) {
+  const [ok, setOk] = useState(true);
   return (
-    <button onClick={onClick} aria-label={c.name} className="group flex flex-1 flex-col items-center transition active:scale-95">
-      <span className="h-4 w-1/2 rounded-t-full border-[3px] border-b-0 border-[#7a5a32]" />
-      <span className="flex aspect-[4/5] w-full items-center justify-center bg-cover bg-center shadow-md group-hover:-translate-y-0.5"
-        style={{ backgroundColor: c.hex, backgroundImage: `url(/wrap/bag-${c.code}.png)` }}>
-        <span className="text-center text-[8px] leading-tight text-black/50">Книжки<br />&amp;<br />Винишко</span>
-      </span>
-      <span className="mt-1 font-sans text-[10px]">{c.name}</span>
+    <button onClick={onClick} aria-label={c.name} className="flex flex-1 flex-col items-center transition active:scale-95">
+      {ok ? (
+        <img src={`/wrap/bag-${c.code}.png`} alt="" onError={() => setOk(false)}
+          className="aspect-[3/4] w-full object-contain drop-shadow-md transition hover:-translate-y-0.5" />
+      ) : (
+        <span className="aspect-[3/4] w-full rounded-sm shadow-md" style={{ backgroundColor: c.hex }} />
+      )}
     </button>
   );
 }
@@ -65,7 +66,7 @@ export default function WrapPage() {
       {/* bottom: the torn paper with the bags */}
       <div className="shrink-0 bg-[#f4ead6] px-4 pb-4 pt-7" style={{ clipPath: TORN }}>
         <p className="text-center text-lg">{v("Подберите цвет пакета под Ваш заказ!", "Подбери цвет пакета под свой заказ!")}</p>
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex gap-1">
           {colors.map((c) => <Bag key={c.code} c={c} onClick={() => choose("BAG", c.code)} />)}
         </div>
         <div className="mt-4 flex gap-2">

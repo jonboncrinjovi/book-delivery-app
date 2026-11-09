@@ -4,7 +4,6 @@ import "@fontsource/pt-serif/400.css";
 import "@fontsource/pt-serif/700.css";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/caveat";
-import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -31,9 +30,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <header className="mx-auto grid w-full max-w-md shrink-0 grid-cols-[2.5rem_1fr_2.5rem] items-center px-3 py-2 text-on-chrome">
           <MusicToggle />
           <Link href="/" className="flex items-center justify-center gap-2 text-2xl">
-            <span>Книжки</span>
-            <Image src="/logo.png" alt="" width={36} height={36} className="rounded-full" />
-            <span>Винишко</span>
+            <img src="/brand/logo-wine.png" alt="Книжки&Винишко" className="logo-light h-11 w-auto" />
+            <img src="/brand/logo-kraft.png" alt="Книжки&Винишко" className="logo-dark h-11 w-auto" />
           </Link>
           <ThemeToggle />
         </header>
@@ -47,7 +45,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </div>
         </main>
 
-        <p className="shrink-0 pb-1 text-center font-sans text-[10px] text-on-chrome opacity-70"><Link href="/legal">Документы и реквизиты</Link> · <a href="https://t.me/literalwine" target="_blank" rel="noopener noreferrer">Наш Telegram</a></p>
+        <p className="mx-auto flex w-full max-w-md shrink-0 justify-between px-6 pb-1 font-sans text-[10px] text-on-chrome opacity-70"><Link href="/legal">Документы и реквизиты</Link><a href="https://t.me/literalwine" target="_blank" rel="noopener noreferrer">Наш Telegram</a></p>
         <BottomNav />
       </body>
     </html>
