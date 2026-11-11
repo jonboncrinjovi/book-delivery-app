@@ -302,6 +302,15 @@ func placeOrder(ctx context.Context, pool *pgxpool.Pool, req OrderReq, now time.
 
 	subtotal := itemsTotal + boxPrice + designTotal
 
+	// 6a. the smallest order we carry: money paid for goods (bonuses, once they can be spent, come off before this)
+	var minOrder int
+	if err := pool.QueryRow(ctx, `SELECT min_order_cents FROM settings`).Scan(&minOrder); err != nil {
+		return resp, err
+	}
+	if subtotal < minOrder {
+		return resp, badRequest{fmt.Sprintf("Минимальный заказ — %d ₽, не считая доставки", minOrder/100)}
+	}
+
 	// 7. delivery fee
 	fee := s.DeliveryFee
 	if s.FreeFrom != nil && subtotal >= *s.FreeFrom {

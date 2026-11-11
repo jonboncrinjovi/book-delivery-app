@@ -5,7 +5,7 @@ import Link from "next/link";
 import { plural } from "@/components/Vintorina";
 import { useV } from "@/lib/address";
 
-type Result = { played: boolean; tile: number; prize?: string; name?: string; score: number };
+type Result = { played: boolean; tile: number; prize?: string; name?: string; score: number; board?: string[] };
 
 const WINE = "#57030d";
 const CREAM = "#f4ead6";
@@ -29,6 +29,7 @@ export default function Razvin() {
   const [r, setR] = useState<Result | null>(null);
   const [guest, setGuest] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [shown, setShown] = useState(false); // the whole field, opened after the tap
 
   const load = useCallback(async () => {
     const res = await fetch("/api/razvin/today");
@@ -67,10 +68,12 @@ export default function Razvin() {
   }
   if (!r) return <div className="flex-1" />;
 
+  const board = r.played && shown ? r.board : undefined;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <p className="shrink-0 text-center text-lg">
-        {r.played ? `${r.name}: +${kniv(r.score)}` : "Одно касание в день. Что под листом?"}
+        {r.played ? `${r.name}: +${kniv(r.score)}` : "Одно касание в день. Что под плиточкой?"}
       </p>
 
       {/* the vineyard: 6 × 8 tiles, as large as the screen allows */}
@@ -80,14 +83,24 @@ export default function Razvin() {
             const mine = r.played && r.tile === i;
             return (
               <button key={i} disabled={r.played || busy} onClick={() => tap(i)}
-                className={`flex items-center justify-center rounded-md border transition ${mine ? "motion-safe:animate-swoop" : r.played ? "opacity-40" : "active:scale-95"}`}
-                style={{ background: mine ? CREAM : "#c9a77a", borderColor: "rgba(0,0,0,0.25)" }}>
-                {mine && r.prize && <PrizeIcon code={r.prize} />}
+                className={`flex items-center justify-center rounded-md border transition ${mine ? "motion-safe:animate-swoop" : board ? "" : r.played ? "opacity-40" : "active:scale-95"}`}
+                style={{
+                  background: mine ? CREAM : board ? "#dcc7a3" : "#c9a77a",
+                  borderColor: mine && board ? WINE : "rgba(0,0,0,0.25)",
+                  borderWidth: mine && board ? 2 : 1,
+                }}>
+                {mine && r.prize ? <PrizeIcon code={r.prize} /> : board ? <PrizeIcon code={board[i]} className="size-[70%] opacity-80" /> : null}
               </button>
             );
           })}
         </div>
       </div>
+
+      {r.played && r.board && (
+        <button onClick={() => setShown((s) => !s)} className="shrink-0 rounded-md py-2 font-sans text-sm shadow-md" style={{ background: WINE, color: CREAM }}>
+          {shown ? "Скрыть поле" : "Показать всё поле"}
+        </button>
+      )}
 
       {/* what can be found, and what it's worth */}
       <div className="grid shrink-0 grid-cols-5 gap-1">

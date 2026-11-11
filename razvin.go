@@ -11,34 +11,37 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// the prizes and their weights out of 1000 (keep in step with «Правила игр»)
+const razvinTiles = 48
+
+// the prizes and how many of each lie on the 48-tile field (keep in step with «Правила игр»)
 var razvinPrizes = []struct {
-	Code, Name     string
-	Points, Weight int
+Code, Name    string
+Points, Count int
 }{
-	{"leaf", "Лист", 10, 720},
-	{"set", "Завязь", 30, 180},
-	{"ripening", "Созревание", 75, 70},
-	{"cluster", "Гроздь", 200, 29},
-	{"gold", "Золотая лоза", 1000, 1},
+{"leaf", "Лист", 10, 31},
+{"set", "Завязь", 30, 8},
+{"ripening", "Созревание", 75, 6},
+{"cluster", "Гроздь", 200, 2},
+{"gold", "Золотая лоза", 1000, 1},
 }
 
-// a cryptographic random number from 0 to 999, walked through the weights
-func razvinDraw() (code, name string, points int) {
-	n, err := rand.Int(rand.Reader, big.NewInt(1000))
-	if err != nil {
-		p := razvinPrizes[0]
-		return p.Code, p.Name, p.Points
-	}
-	x := int(n.Int64())
-	for _, p := range razvinPrizes {
-		if x < p.Weight {
-			return p.Code, p.Name, p.Points
-		}
-		x -= p.Weight
-	}
-	p := razvinPrizes[0]
-	return p.Code, p.Name, p.Points
+// the whole field: every prize in its set number, shuffled with cryptographic randomness (Fisher–Yates)
+func razvinShuffled() []string {
+board := make([]string, 0, razvinTiles)
+for _, p := range razvinPrizes {
+for i := 0; i < p.Count; i++ {
+board = append(board, p.Code)
+}
+}
+for i := len(board) - 1; i > 0; i-- {
+n, err := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
+if err != nil {
+continue
+}
+j := int(n.Int64())
+board[i], board[j] = board[j], board[i]
+}
+return board
 }
 
 func razvinName(code string) string {
@@ -50,12 +53,44 @@ func razvinName(code string) string {
 	return code
 }
 
+func razvinPoints(code string) int {
+	for _, p := range razvinPrizes {
+		if p.Code == code {
+			return p.Points
+		}
+	}
+	return razvinPrizes[0].Points
+}
+
+// today's field for this player: shuffled and saved on first sight.
+// ON CONFLICT DO NOTHING: once a field exists, a reload cannot draw another one
+func razvinBoard(r *http.Request, pool *pgxpool.Pool, uid int64) ([]string, error) {
+	day := moscowToday()
+	fresh := razvinShuffled()
+	if _, err := pool.Exec(r.Context(), `
+        INSERT INTO razvin_boards (user_id, play_date, board)
+        VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, uid, day, fresh); err != nil {
+		return nil, err
+	}
+	var board []string
+	err := pool.QueryRow(r.Context(), `SELECT board FROM razvin_boards WHERE user_id = $1 AND play_date = $2`,
+		uid, day).Scan(&board)
+	if err != nil {
+		return nil, err
+	}
+	if len(board) != razvinTiles {
+		return nil, errors.New("razvin: bad board")
+	}
+	return board, nil
+}
+
 type razvinResult struct {
-	Played bool   `json:"played"`
-	Tile   int    `json:"tile"`
-	Prize  string `json:"prize,omitempty"`
-	Name   string `json:"name,omitempty"`
-	Score  int    `json:"score"`
+	Played bool     `json:"played"`
+	Tile   int      `json:"tile"`
+	Prize  string   `json:"prize,omitempty"`
+	Name   string   `json:"name,omitempty"`
+	Score  int      `json:"score"`
+	Board  []string `json:"board,omitempty"` // only after the tap
 }
 
 func razvinLoad(r *http.Request, pool *pgxpool.Pool, uid int64) (razvinResult, error) {
@@ -69,14 +104,23 @@ func razvinLoad(r *http.Request, pool *pgxpool.Pool, uid int64) (razvinResult, e
 		return res, err
 	}
 	res.Played, res.Name = true, razvinName(res.Prize)
+	// the field is shown only now; a tap made before fields existed keeps its own prize on its tile
+	if board, err := razvinBoard(r, pool, uid); err == nil {
+		board[res.Tile] = res.Prize
+		res.Board = board
+	}
 	return res, nil
 }
 
-// GET /api/razvin/today: whether today's tap is used, and what it found
+// GET /api/razvin/today: lays out today's field if there is none, and says whether the tap is used
 func razvinToday(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, ok := vtUser(w, r, pool)
 		if !ok {
+			return
+		}
+		if _, err := razvinBoard(r, pool, uid); err != nil {
+			http.Error(w, "Ошибка", http.StatusInternalServerError)
 			return
 		}
 		res, err := razvinLoad(r, pool, uid)
@@ -88,7 +132,7 @@ func razvinToday(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// POST /api/razvin/tap {"tile": 0..47}: the day's one tap; a second one just returns the first result
+// POST /api/razvin/tap {"tile": 0..47}: the day's one tap takes what lies under that tile; a second one just returns the first result
 func razvinTap(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, ok := vtUser(w, r, pool)
@@ -98,16 +142,21 @@ func razvinTap(pool *pgxpool.Pool) http.HandlerFunc {
 		var body struct {
 			Tile int `json:"tile"`
 		}
-		if json.NewDecoder(r.Body).Decode(&body) != nil || body.Tile < 0 || body.Tile > 47 {
-			http.Error(w, "Некорректная клетка", http.StatusBadRequest)
+		if json.NewDecoder(r.Body).Decode(&body) != nil || body.Tile < 0 || body.Tile >= razvinTiles {
+			http.Error(w, "Некорректная плитка", http.StatusBadRequest)
 			return
 		}
-		code, _, points := razvinDraw()
-		// ON CONFLICT DO NOTHING: if today's tap already exists, nothing is drawn again
+		board, err := razvinBoard(r, pool, uid)
+		if err != nil {
+			http.Error(w, "Ошибка", http.StatusInternalServerError)
+			return
+		}
+		code := board[body.Tile]
+		// ON CONFLICT DO NOTHING: if today's tap already exists, the first one stands
 		pool.Exec(r.Context(), `
-			INSERT INTO razvin_plays (user_id, play_date, tile, prize, score)
-			VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
-			uid, moscowToday(), body.Tile, code, points)
+            INSERT INTO razvin_plays (user_id, play_date, tile, prize, score)
+            VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
+			uid, moscowToday(), body.Tile, code, razvinPoints(code))
 		res, err := razvinLoad(r, pool, uid)
 		if err != nil {
 			http.Error(w, "Ошибка", http.StatusInternalServerError)

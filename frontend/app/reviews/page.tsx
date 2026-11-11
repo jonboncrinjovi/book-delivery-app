@@ -38,7 +38,7 @@ export default function ReviewsPage() {
           <button key={t} onClick={() => setTab(t)}
             className={`rounded-md py-2 text-lg shadow-md transition-opacity ${t === "obzor" ? "col-span-2" : ""} ${tab === t ? "" : "opacity-60"}`}
             style={{ background: WINE, color: CREAM }}>
-            {t === "books" ? "Обзоры книг" : t === "service" ? "Обзоры доставок" : "Литературный обзор"}
+            {t === "books" ? "Обзоры книг" : t === "service" ? "Обзоры доставок" : <>Литера<i style={{ color: GOLD }}>вин</i>ный обзор</>}
           </button>
         ))}
       </div>
@@ -289,7 +289,7 @@ function ServiceReviews() {
         <ul className="space-y-2">
           {shown.map((r) => (
             <li key={r.id} className="rounded-md p-4 shadow-sm" style={{ background: CREAM }}>
-              <GrapeRow level={r.grapes} />
+              <img src={`/grapes/${r.grapes}.png`} alt={GRAPE_NAMES[r.grapes]} title={GRAPE_NAMES[r.grapes]} className="inline-block h-7 w-7 object-contain" />
               <p className="mt-2 italic leading-snug" style={{ color: WINE }}>«{r.text}»</p>
               <p className="mt-2 font-sans text-xs opacity-60">{r.author}, {day(r.at)}</p>
             </li>
@@ -312,10 +312,9 @@ function ServiceReviews() {
           </select>
           <div className="grid grid-cols-5 gap-1 font-sans text-[10px]">
             {[1, 2, 3, 4, 5].map((g) => (
-              <button key={g} onClick={() => setScore(g)} className="flex flex-col items-center gap-1 rounded-md border px-1 py-2"
-                style={score === g ? { background: WINE, color: CREAM, borderColor: WINE } : { borderColor: "rgba(0,0,0,0.2)" }}>
-                <GrapeRow level={g} size={6} />
-                {GRAPE_NAMES[g]}
+              <button key={g} onClick={() => setScore(g)} className={`flex flex-col items-center gap-1 rounded-md border-2 px-1 py-2 transition ${score === g ? "scale-105 shadow-md" : score ? "opacity-40" : ""}`}
+                style={score === g ? { background: "#fff", borderColor: WINE } : { borderColor: "rgba(0,0,0,0.15)" }}>
+                <img src={`/grapes/${g}.png`} alt={GRAPE_NAMES[g]} title={GRAPE_NAMES[g]} className="h-11 w-11 object-contain" />
               </button>
             ))}
           </div>
